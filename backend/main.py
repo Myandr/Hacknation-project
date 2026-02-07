@@ -12,7 +12,7 @@ from schemas import (
     MessageOut,
 )
 from agent import process_message
-from asos_api import search_products_by_category
+from asos_api import search_products
 
 # ---------------------------------------------------------------------------
 # Tabellen erstellen
@@ -167,13 +167,14 @@ def chat(session_id: str, body: MessageRequest, db: Session = Depends(get_db)):
     db.refresh(session)
     db.refresh(req)
 
-    # Wenn die KI gerade abgeschlossen hat: automatisch ASOS-Suche mit von der KI gespeicherter Kategorie (Limit 10)
+    # Wenn die KI gerade abgeschlossen hat: automatisch ASOS-Suche mit gespeicherter Kategorie (Limit 10)
     products: list[dict] = []
     if session.status == "ready_for_search" and req:
+        search_term = (req.category or "clothing").strip() or "clothing"
         currency = (req.budget_currency or "USD").upper()
         country = _country_to_code(req.country) if req.country else "US"
-        result = search_products_by_category(
-            req.category,
+        result = search_products(
+            search_term,
             currency=currency,
             country=country,
             store=country,
@@ -213,13 +214,14 @@ def search_session_products(
             detail="Keine Anforderungen für diese Session.",
         )
 
-    # Suchbegriff kommt ausschließlich aus der von der KI gespeicherten Kategorie (clothing, food, both, other)
+    # Exakt die in der KI gespeicherte Kategorie als Suchbegriff (clothing, food, both, other)
+    search_term = (req.category or "clothing").strip() or "clothing"
     currency = (req.budget_currency or "USD").upper()
     country = _country_to_code(req.country) if req.country else "US"
     store = country
 
-    result = search_products_by_category(
-        req.category,
+    result = search_products(
+        search_term,
         currency=currency,
         country=country,
         store=store,
