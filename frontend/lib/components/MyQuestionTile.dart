@@ -4,12 +4,16 @@ import 'package:flutter/material.dart';
 
 class MyQuestionTile extends StatefulWidget {
   final String question;
+  final String? answer;
   final VoidCallback? onTap;
+  final ValueChanged<String>? onAnswerSubmitted;
 
   const MyQuestionTile({
     super.key,
     this.question = 'Wieviele Leute sollen kommen?',
+    this.answer,
     this.onTap,
+    this.onAnswerSubmitted,
   });
 
   @override
@@ -19,6 +23,8 @@ class MyQuestionTile extends StatefulWidget {
 class _MyQuestionTileState extends State<MyQuestionTile> {
   bool _isExpanded = false;
   final TextEditingController _answerController = TextEditingController();
+
+  bool get _hasAnswer => widget.answer != null && widget.answer!.isNotEmpty;
 
   @override
   void dispose() {
@@ -36,11 +42,12 @@ class _MyQuestionTileState extends State<MyQuestionTile> {
           children: [
             // Question text with arrow icon
             Row(
-              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  widget.question,
-                  style: const TextStyle(fontSize: 18, color: Colors.black),
+                Flexible(
+                  child: Text(
+                    widget.question,
+                    style: const TextStyle(fontSize: 18, color: Colors.black),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 GestureDetector(
@@ -70,58 +77,81 @@ class _MyQuestionTileState extends State<MyQuestionTile> {
           child: _isExpanded
               ? Padding(
                   padding: const EdgeInsets.only(left: 20, right: 20, top: 12),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _answerController,
+                  child: _hasAnswer
+                      ? Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Text(
+                            widget.answer!,
                             style: const TextStyle(
                               fontSize: 15,
                               color: Colors.black87,
                             ),
-                            decoration: InputDecoration(
-                              hintText: 'Deine Antwort...',
-                              hintStyle: TextStyle(
-                                color: Colors.grey.shade400,
-                                fontSize: 15,
+                          ),
+                        )
+                      : Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 10,
+                                spreadRadius: 2,
                               ),
-                              border: InputBorder.none,
-                              isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _answerController,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    color: Colors.black87,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: 'Deine Antwort...',
+                                    hintStyle: TextStyle(
+                                      color: Colors.grey.shade400,
+                                      fontSize: 15,
+                                    ),
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
+                              GestureDetector(
+                                onTap: () {
+                                  final text = _answerController.text.trim();
+                                  if (text.isNotEmpty) {
+                                    widget.onAnswerSubmitted?.call(text);
+                                    _answerController.clear();
+                                  }
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.only(right: 16),
+                                  child: Icon(
+                                    CupertinoIcons.paperplane,
+                                    color: Colors.grey.shade400,
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        GestureDetector(
-                          onTap: () {
-                            // Submit action
-                          },
-                          child: Padding(
-                            padding: EdgeInsets.only(right: 16),
-                            child: Icon(
-                              CupertinoIcons.paperplane,
-                              color: Colors.grey.shade400,
-                              size: 20,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 )
               : const SizedBox.shrink(),
         ),

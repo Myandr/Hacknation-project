@@ -5,6 +5,7 @@ class MyTextField extends StatefulWidget {
   final String hintText;
   final VoidCallback? onSend;
   final ValueChanged<bool>? onModeChanged;
+  final bool enabled;
 
   const MyTextField({
     super.key,
@@ -12,6 +13,7 @@ class MyTextField extends StatefulWidget {
     this.hintText = 'Ask anything...',
     this.onSend,
     this.onModeChanged,
+    this.enabled = true,
   });
 
   @override
@@ -60,6 +62,7 @@ class _MyTextFieldState extends State<MyTextField> {
               if (_isChat)
                 TextField(
                   controller: widget.controller,
+                  enabled: widget.enabled,
                   style: const TextStyle(fontSize: 15, color: Colors.black87),
                   maxLines: null,
                   decoration: InputDecoration(
@@ -144,12 +147,14 @@ class _MyTextFieldState extends State<MyTextField> {
                   const SizedBox(width: 8),
                   // Send button
                   GestureDetector(
-                    onTap: widget.onSend,
+                    onTap: widget.enabled ? widget.onSend : null,
                     child: Container(
                       width: 32,
                       height: 32,
-                      decoration: const BoxDecoration(
-                        color: Colors.black,
+                      decoration: BoxDecoration(
+                        color: widget.enabled
+                            ? Colors.black
+                            : Colors.grey.shade400,
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
