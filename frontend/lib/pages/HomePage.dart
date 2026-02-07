@@ -1,6 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:hacknation_app/components/MyQuestionTile.dart';
+import 'package:hacknation_app/components/MyResults.dart';
 import 'package:hacknation_app/components/MyTextField.dart';
 
 class HomePage extends StatelessWidget {
@@ -18,7 +18,7 @@ class HomePage extends StatelessWidget {
           onPressed: () {},
         ),
         title: const Text(
-          'Hackathon Planung',
+          'Ski Outfit',
           style: TextStyle(color: Colors.black),
         ),
         centerTitle: true,
@@ -36,7 +36,7 @@ class HomePage extends StatelessWidget {
           children: [
             const Align(
               alignment: Alignment.centerLeft,
-              child: MyQuestionTile(),
+              child: MyResults(),
             ),
             const Spacer(),
             MyTextField(),
