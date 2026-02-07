@@ -25,7 +25,8 @@ Backend starten: im Ordner `backend` → `uvicorn main:app --reload --host 0.0.0
 | GET | `/health` | Health-Check |
 | POST | `/sessions` | Neue Session erstellen |
 | GET | `/sessions/{session_id}` | Session inkl. Nachrichten & Requirements laden |
-| POST | `/sessions/{session_id}/chat` | Eine Nachricht senden, Antwort als JSON |
+| POST | `/sessions/{session_id}/chat` | Eine Nachricht senden, Antwort als JSON (inkl. ggf. Produkte) |
+| GET | `/sessions/{session_id}/search/products` | Produkte zur Session-Kategorie suchen (ASOS, optional limit/offset) |
 
 **Interaktive Docs:** Im Browser `http://127.0.0.1:8000/docs` öffnen (Swagger UI).
 
@@ -105,15 +106,18 @@ Backend starten: im Ordner `backend` → `uvicorn main:app --reload --host 0.0.0
   "session_id": "...",
   "reply": "Super, dann schauen wir mal...",
   "requirements": { ... },
-  "status": "gathering_info"
+  "status": "gathering_info",
+  "products": []
 }
 ```
 
 - **Status:**  
   - `gathering_info` = KI sammelt noch Infos  
-  - `ready_for_search` = KI hat abgeschlossen (`is_complete: true`)
+  - `ready_for_search` = KI hat abgeschlossen → **Suche startet automatisch**
 
-Wenn `status === "ready_for_search"`, antwortet die API mit 400, falls man erneut `/chat` aufruft.
+- **Automatische Produktsuche:** Sobald die KI alle Infos hat und `status === "ready_for_search"` ist, führt die API **automatisch** eine ASOS-Suche aus (Suchbegriff = gespeicherte **category**: `clothing`, `food`, `both`, `other`). Die Antwort enthält dann bis zu **10 Produkte** im Feld `products`. Du musst also **keinen** separaten Aufruf starten – die Produkte kommen direkt in der Chat-Response.
+
+- Wenn `status === "ready_for_search"`, antwortet die API mit 400, falls man erneut `/chat` aufruft.
 
 ---
 
@@ -143,6 +147,167 @@ In Flutter kannst du dafür ein eigenes Modell (z. B. `ShoppingRequirements`) mi
 
 ---
 
+## 5. Produkte anzeigen (Flutter)
+
+Die Produkte kommen entweder **automatisch** in der Chat-Response (`POST .../chat`), sobald `status === "ready_for_search"` ist, oder du holst sie nach mit **GET** `/sessions/{session_id}/search/products` (z. B. `?limit=10&offset=0`).
+
+### Response-Struktur Produkte
+
+`products` ist eine Liste von Objekten. Die ASOS-API kann je nach Endpunkt unterschiedliche Felder liefern; typisch sind z. B.:
+
+- `name` / `productName` / `title` – Produktname  
+- `price` / `price.current.value` – Preis  
+- `imageUrl` / `imageUrl` / `media.images[0].url` – Bild-URL  
+- `id` – Produkt-ID  
+- `url` – Link zum Produkt  
+
+Da die genaue Struktur variieren kann, in Flutter am besten ein flexibles Modell nutzen (z. B. `Map<String, dynamic>` oder ein Modell mit optionalen Feldern).
+
+### Flutter: Produktliste anzeigen
+
+Nach dem Chat-Aufruf: wenn `response.status == "ready_for_search"` und `response.products != null` und `response.products!.isNotEmpty`, die Liste anzeigen.
+
+**1. Modell (Beispiel mit optionalen Feldern):**
+
+```dart
+class ProductItem {
+  final String? id;
+  final String? name;
+  final String? imageUrl;
+  final String? price;
+  final String? url;
+
+  ProductItem({
+    this.id,
+    this.name,
+    this.imageUrl,
+    this.price,
+    this.url,
+  });
+
+  factory ProductItem.fromJson(Map<String, dynamic> json) {
+    // ASOS / API-Struktur anpassen; oft verschachtelt (z. B. price.current.value)
+    final priceObj = json['price'];
+    final priceVal = priceObj is Map
+        ? (priceObj['current']?['value'] ?? priceObj['value'] ?? priceObj)
+        : priceObj;
+    return ProductItem(
+      id: json['id']?.toString(),
+      name: json['name'] ?? json['productName'] ?? json['title'],
+      imageUrl: json['imageUrl'] ?? json['media']?['images']?[0]?['url'],
+      price: priceVal?.toString(),
+      url: json['url'],
+    );
+  }
+}
+```
+
+**2. Chat-Response erweitern:**
+
+```dart
+class MessageResponse {
+  final String sessionId;
+  final String reply;
+  final RequirementsOut requirements;
+  final String status;
+  final List<ProductItem> products;
+
+  MessageResponse({
+    required this.sessionId,
+    required this.reply,
+    required this.requirements,
+    required this.status,
+    this.products = const [],
+  });
+
+  factory MessageResponse.fromJson(Map<String, dynamic> json) {
+    final productsList = json['products'] as List<dynamic>? ?? [];
+    return MessageResponse(
+      sessionId: json['session_id'],
+      reply: json['reply'],
+      requirements: RequirementsOut.fromJson(json['requirements']),
+      status: json['status'],
+      products: productsList
+          .map((e) => ProductItem.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+```
+
+**3. UI: Liste der Produkte (z. B. unter dem Chat):**
+
+```dart
+if (messageResponse.status == 'ready_for_search' &&
+    messageResponse.products.isNotEmpty) {
+  Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text('Deine Produkte (${messageResponse.products.length})',
+          style: Theme.of(context).textTheme.titleMedium),
+      const SizedBox(height: 8),
+      SizedBox(
+        height: 220,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          itemCount: messageResponse.products.length,
+          itemBuilder: (context, index) {
+            final p = messageResponse.products[index];
+            return Card(
+              margin: const EdgeInsets.only(right: 12),
+              child: SizedBox(
+                width: 160,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (p.imageUrl != null && p.imageUrl!.isNotEmpty)
+                      Image.network(
+                        p.imageUrl!,
+                        height: 120,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            const Icon(Icons.image_not_supported, size: 48),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            p.name ?? 'Produkt',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          if (p.price != null)
+                            Text(
+                              '${p.price} €',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    ],
+  )
+}
+```
+
+So zeigst du die 10 Produkte direkt an, sobald die KI fertig ist – ohne weiteren API-Call. Wenn du später mehr laden willst, rufe `GET /sessions/{session_id}/search/products?limit=10&offset=10` auf.
+
+---
+
 ## Fehlerbehandlung
 
 - **404** – Session nicht gefunden (z. B. falsche `session_id`). Body oft: `{"detail": "Session nicht gefunden"}`.
@@ -165,5 +330,8 @@ Flutter: Statuscode prüfen und bei 4xx/5xx `detail` anzeigen oder in der App ve
 
 4. **Requirements anzeigen**  
    Aus `requirements` in Session- oder Chat-Response die gespeicherten Anforderungen (Budget, Anlass, etc.) in der UI anzeigen.
+
+5. **Produkte anzeigen**  
+   Sobald `status === "ready_for_search"`, enthält die Chat-Response automatisch `products` (bis zu 10). Diese Liste anzeigen (z. B. horizontale ListView mit Bild, Name, Preis) – siehe Abschnitt 5 oben. Optional: weitere Produkte mit `GET /sessions/{session_id}/search/products?limit=10&offset=10` laden.
 
 Damit kann dein Freund das Flutter-Frontend vollständig an die bestehende API anbinden.

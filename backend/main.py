@@ -12,6 +12,7 @@ from schemas import (
     MessageOut,
 )
 from agent import process_message
+from asos_api import search_products
 
 # ---------------------------------------------------------------------------
 # Tabellen erstellen
@@ -166,9 +167,99 @@ def chat(session_id: str, body: MessageRequest, db: Session = Depends(get_db)):
     db.refresh(session)
     db.refresh(req)
 
+    # Wenn die KI gerade abgeschlossen hat: automatisch ASOS-Suche mit gespeicherter Kategorie (Limit 10)
+    products: list[dict] = []
+    if session.status == "ready_for_search" and req:
+        search_term = (req.category or "clothing").strip() or "clothing"
+        currency = (req.budget_currency or "USD").upper()
+        country = _country_to_code(req.country) if req.country else "US"
+        result = search_products(
+            search_term,
+            currency=currency,
+            country=country,
+            store=country,
+            limit=10,
+            offset=0,
+        )
+        products = result.get("products", []) or []
+
     return MessageResponse(
         session_id=session.id,
         reply=assistant_text,
         requirements=_requirements_out(session.requirements),
         status=session.status,
+        products=products,
     )
+
+
+# -- Suche (ASOS) ------------------------------------------------------------
+
+@app.get("/sessions/{session_id}/search/products")
+def search_session_products(
+    session_id: str,
+    limit: int = 10,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+):
+    """
+    Sucht bei ASOS (RapidAPI) nach Produkten zur Kategorie der Session.
+    Nutzt exakt die in der KI gespeicherte category (clothing, food, both, other).
+    Standard-Limit: 10 Produkte.
+    """
+    session = _get_session_or_404(session_id, db)
+    req = session.requirements
+    if not req:
+        raise HTTPException(
+            status_code=400,
+            detail="Keine Anforderungen für diese Session.",
+        )
+
+    # Exakt die in der KI gespeicherte Kategorie als Suchbegriff (clothing, food, both, other)
+    search_term = (req.category or "clothing").strip() or "clothing"
+    currency = (req.budget_currency or "USD").upper()
+    country = _country_to_code(req.country) if req.country else "US"
+    store = country
+
+    result = search_products(
+        search_term,
+        currency=currency,
+        country=country,
+        store=store,
+        limit=limit,
+        offset=offset,
+    )
+
+    if "error" in result and result.get("products") == []:
+        raise HTTPException(
+            status_code=502,
+            detail=result.get("error", "ASOS-Suche fehlgeschlagen"),
+        )
+
+    return {
+        "session_id": session_id,
+        "search_term": search_term,
+        "category": req.category,
+        "products": result.get("products", []),
+        "count": result.get("count", 0),
+    }
+
+
+def _country_to_code(country: str) -> str:
+    """Land-Name oder -Code auf 2-Buchstaben-Code für ASOS mappen."""
+    m = {
+        "germany": "DE",
+        "deutschland": "DE",
+        "us": "US",
+        "usa": "US",
+        "united states": "US",
+        "uk": "GB",
+        "united kingdom": "GB",
+        "gb": "GB",
+        "france": "FR",
+        "italy": "IT",
+        "spain": "ES",
+        "austria": "AT",
+        "switzerland": "CH",
+    }
+    key = (country or "").strip().lower()
+    return m.get(key, "US")
