@@ -26,9 +26,40 @@ CATEGORY_TO_SEARCH: dict[str, str] = {
 
 
 def _default_search_term(category: str | None) -> str:
-    if category and category.lower() in CATEGORY_TO_SEARCH:
-        return CATEGORY_TO_SEARCH[category.lower()]
+    """Leitet aus der von der KI gespeicherten Kategorie den ASOS-Suchbegriff ab."""
+    if category and category.strip():
+        key = category.strip().lower()
+        if key in CATEGORY_TO_SEARCH:
+            return CATEGORY_TO_SEARCH[key]
+        return key  # Unbekannte Kategorie direkt als Suchbegriff
     return "fashion"
+
+
+def search_products_by_category(
+    category: str | None,
+    *,
+    currency: str = "USD",
+    country: str = "US",
+    store: str = "US",
+    limit: int = 10,
+    offset: int = 0,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """
+    Sucht ASOS-Produkte anhand der **von der KI gespeicherten Kategorie**.
+    category: Wert aus ShoppingRequirement.category (clothing, food, both, other).
+    Der Suchbegriff wird daraus abgeleitet (z. B. both -> clothing).
+    """
+    search_term = _default_search_term(category)
+    return search_products(
+        search_term,
+        currency=currency,
+        country=country,
+        store=store,
+        limit=limit,
+        offset=offset,
+        **kwargs,
+    )
 
 
 def search_products(
