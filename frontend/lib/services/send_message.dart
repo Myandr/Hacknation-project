@@ -8,20 +8,31 @@ class ChatResponse {
   final String reply;
   final String status;
   final Map<String, dynamic> requirements;
+  /// Bei status == 'ready_for_search': bis zu 10 Produkte aus der API.
+  final List<Map<String, dynamic>> products;
 
   ChatResponse({
     required this.sessionId,
     required this.reply,
     required this.status,
     required this.requirements,
+    this.products = const [],
   });
 
   factory ChatResponse.fromJson(Map<String, dynamic> json) {
+    final productsRaw = json['products'];
+    List<Map<String, dynamic>> products = [];
+    if (productsRaw is List) {
+      for (final e in productsRaw) {
+        if (e is Map<String, dynamic>) products.add(e);
+      }
+    }
     return ChatResponse(
       sessionId: json['session_id'] as String,
       reply: json['reply'] as String,
       status: json['status'] as String,
-      requirements: json['requirements'] as Map<String, dynamic>,
+      requirements: json['requirements'] as Map<String, dynamic>? ?? {},
+      products: products,
     );
   }
 }
