@@ -2,7 +2,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hacknation_app/components/MyQuestionTile.dart';
 import 'package:hacknation_app/components/MyTextField.dart';
+import 'package:hacknation_app/components/MyResult.dart';
 import 'package:hacknation_app/services/create_session.dart';
+import 'package:hacknation_app/services/get_products.dart';
 import 'package:hacknation_app/pages/ProfilePage.dart';
 import 'package:hacknation_app/services/send_message.dart';
 
@@ -21,6 +23,7 @@ class _HomePageState extends State<HomePage> {
 
   final TextEditingController _messageController = TextEditingController();
   final List<Map<String, String>> _messages = []; // {role, content}
+  List<Map<String, dynamic>> _products = [];
   bool _isSending = false;
 
   @override
@@ -61,6 +64,13 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _messages.add({'role': 'assistant', 'content': response.reply});
         _isSending = false;
+        if (response.status == 'ready_for_search') {
+          if (response.products.isNotEmpty) {
+            _products = response.products;
+          } else {
+            _loadProducts();
+          }
+        }
       });
     } catch (e) {
       setState(() {
@@ -68,6 +78,12 @@ class _HomePageState extends State<HomePage> {
         _isSending = false;
       });
     }
+  }
+
+  Future<void> _loadProducts() async {
+    if (sessionId == null) return;
+    final list = await getProducts(sessionId!);
+    if (mounted) setState(() => _products = list);
   }
 
   /// Baut Frage-Antwort-Paare aus der Nachrichtenliste.
@@ -139,35 +155,70 @@ class _HomePageState extends State<HomePage> {
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.only(top: 8),
-                      itemCount:
-                          _questionAnswerPairs.length + (_isSending ? 1 : 0),
+                      itemCount: _questionAnswerPairs.length +
+                          (_isSending ? 1 : 0) +
+                          (_products.isNotEmpty ? 1 + _products.length : 0),
                       itemBuilder: (context, index) {
-                        if (index == _questionAnswerPairs.length) {
-                          return const Align(
-                            alignment: Alignment.centerLeft,
-                            child: Padding(
-                              padding: EdgeInsets.all(12),
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
+                        final questionCount =
+                            _questionAnswerPairs.length + (_isSending ? 1 : 0);
+                        if (index < questionCount) {
+                          if (index == _questionAnswerPairs.length) {
+                            return const Align(
+                              alignment: Alignment.centerLeft,
+                              child: Padding(
+                                padding: EdgeInsets.all(12),
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 ),
+                              ),
+                            );
+                          }
+                          final pair = _questionAnswerPairs[index];
+                          final isLast =
+                              index == _questionAnswerPairs.length - 1;
+                          final hasNoAnswer = pair['answer'] == null;
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: MyQuestionTile(
+                              question: pair['question']!,
+                              answer: pair['answer'],
+                              onAnswerSubmitted: (isLast && hasNoAnswer)
+                                  ? _sendMessage
+                                  : null,
+                            ),
+                          );
+                        }
+                        final productIndex = index - questionCount;
+                        if (productIndex == 0) {
+                          return Padding(
+                            padding: const EdgeInsets.only(
+                              top: 16,
+                              bottom: 8,
+                              left: 4,
+                            ),
+                            child: Text(
+                              'Deine Produkte',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey.shade800,
                               ),
                             ),
                           );
                         }
-                        final pair = _questionAnswerPairs[index];
-                        final isLast = index == _questionAnswerPairs.length - 1;
-                        final hasNoAnswer = pair['answer'] == null;
+                        final p = _products[productIndex - 1];
+                        final (name, price, imageUrl) =
+                            productDisplayFromMap(p);
                         return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 6),
-                          child: MyQuestionTile(
-                            question: pair['question']!,
-                            answer: pair['answer'],
-                            onAnswerSubmitted: (isLast && hasNoAnswer)
-                                ? _sendMessage
-                                : null,
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: MyResult(
+                            name: name,
+                            price: price,
+                            imageUrl: imageUrl,
                           ),
                         );
                       },
