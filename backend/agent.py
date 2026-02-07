@@ -396,9 +396,6 @@ def _parse_gemini_response(response) -> tuple[list[str], list[dict]]:
     tool_calls_data: list[dict] = []
     text_parts: list[str] = []
 
-    if not response.candidates or not response.candidates[0].content or not response.candidates[0].content.parts:
-        return text_parts, tool_calls_data
-
     for part in response.candidates[0].content.parts:
         if part.function_call and part.function_call.name:
             fc = part.function_call
@@ -436,8 +433,7 @@ def _process_gemini(
 
     # Wenn Function Calls aber kein Text → Ergebnis zurücksenden
     if tool_calls_data and not text_parts:
-        if response.candidates and response.candidates[0].content:
-            contents.append(response.candidates[0].content)
+        contents.append(response.candidates[0].content)
 
         fn_response_parts = [
             types.Part.from_function_response(
@@ -456,17 +452,9 @@ def _process_gemini(
             contents=contents,
             config=config,
         )
-        # Gemini kann bei Tool-Follow-up manchmal candidates[0].content = None liefern
-        if (
-            follow_up.candidates
-            and follow_up.candidates[0].content
-            and follow_up.candidates[0].content.parts
-        ):
-            for part in follow_up.candidates[0].content.parts:
-                if part.text:
-                    text_parts.append(part.text)
-        elif not text_parts:
-            text_parts.append("Alles klar, ich habe deine Angaben gespeichert.")
+        for part in follow_up.candidates[0].content.parts:
+            if part.text:
+                text_parts.append(part.text)
 
     assistant_text = "\n".join(text_parts) if text_parts else ""
     return assistant_text, tool_calls_data
@@ -498,8 +486,7 @@ def _stream_gemini(
 
     if tool_calls_data and not text_parts:
         # Tool-Calls verarbeiten, dann streamen
-        if response.candidates and response.candidates[0].content:
-            contents.append(response.candidates[0].content)
+        contents.append(response.candidates[0].content)
 
         fn_response_parts = [
             types.Part.from_function_response(

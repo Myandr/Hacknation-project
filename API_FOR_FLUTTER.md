@@ -151,70 +151,6 @@ In Flutter kannst du dafür ein eigenes Modell (z. B. `ShoppingRequirements`) mi
 
 Die Produkte kommen entweder **automatisch** in der Chat-Response (`POST .../chat`), sobald `status === "ready_for_search"` ist, oder du holst sie nach mit **GET** `/sessions/{session_id}/search/products` (z. B. `?limit=10&offset=0`).
 
-### Automatisch Produkte laden, wenn das Gespräch endet
-
-Sobald die KI mit „Ich habe alle Angaben gespeichert“ o. ä. antwortet, ist `status === "ready_for_search"`. Die **Produkte liegen dann schon in derselben Chat-Response** – du brauchst **keinen** zweiten Request, wenn du die Response auswertest.
-
-**Ablauf in Flutter:**
-
-1. Nach **jeder** Chat-Nachricht (POST `/sessions/{session_id}/chat`) die Response parsen.
-2. **Wenn** `response.status == "ready_for_search"`:
-   - **Option A (empfohlen):** `response.products` direkt verwenden und in der UI anzeigen (z. B. Liste unter dem Chat oder eigene Produkt-Seite).
-   - **Option B (Fallback):** Wenn `response.products` leer ist (z. B. weil die ASOS-API kurz nicht erreichbar war), **dann** einmalig **GET** `/sessions/{session_id}/search/products` aufrufen und die zurückgegebenen Produkte anzeigen.
-
-**Beispiel: Nach dem Senden einer Chat-Nachricht**
-
-```dart
-Future<void> sendMessage(String text) async {
-  final response = await http.post(
-    Uri.parse('$baseUrl/sessions/$sessionId/chat'),
-    headers: {'Content-Type': 'application/json'},
-    body: jsonEncode({'message': text}),
-  );
-
-  if (response.statusCode != 200) {
-    // Fehler anzeigen (z. B. response.body oder detail)
-    return;
-  }
-
-  final data = jsonDecode(response.body);
-  final status = data['status'] as String?;
-  final reply = data['reply'] as String? ?? '';
-
-  // Nachricht wie gewohnt anzeigen
-  addAssistantMessage(reply);
-
-  // Sobald die KI fertig ist: Produkte aus der Response nutzen oder nachladen
-  if (status == 'ready_for_search') {
-    List<dynamic> products = data['products'] as List<dynamic>? ?? [];
-    if (products.isNotEmpty) {
-      setState(() {
-        productList = products.map((e) => ProductItem.fromJson(e as Map<String, dynamic>)).toList();
-      });
-      // Optional: zur Produktansicht wechseln oder Sektion unter dem Chat einblenden
-      // Navigator.push(...) oder _showProductSection = true;
-    } else {
-      // Fallback: Produkte separat abrufen
-      await fetchProducts();
-    }
-  }
-}
-
-Future<void> fetchProducts() async {
-  final response = await http.get(
-    Uri.parse('$baseUrl/sessions/$sessionId/search/products?limit=10&offset=0'),
-  );
-  if (response.statusCode != 200) return;
-  final data = jsonDecode(response.body);
-  final list = data['products'] as List<dynamic>? ?? [];
-  setState(() {
-    productList = list.map((e) => ProductItem.fromJson(e as Map<String, dynamic>)).toList();
-  });
-}
-```
-
-Kurz: **Einmal** `POST .../chat` ausführen → in der Antwort `status` prüfen → bei `"ready_for_search"` die `products` aus der gleichen Response nehmen (oder bei leeren `products` einmal `GET .../search/products` aufrufen). So werden die Produkte automatisch angezeigt, sobald das Gespräch endet.
-
 ### Response-Struktur Produkte
 
 `products` ist eine Liste von Objekten. Die ASOS-API kann je nach Endpunkt unterschiedliche Felder liefern; typisch sind z. B.:
@@ -395,7 +331,7 @@ Flutter: Statuscode prüfen und bei 4xx/5xx `detail` anzeigen oder in der App ve
 4. **Requirements anzeigen**  
    Aus `requirements` in Session- oder Chat-Response die gespeicherten Anforderungen (Budget, Anlass, etc.) in der UI anzeigen.
 
-5. **Produkte automatisch anzeigen, wenn das Gespräch endet**  
-   Nach jedem `POST .../chat`: Wenn die Response `status === "ready_for_search"` hat, kommen die Produkte **in derselben Response** unter `products`. Einfach diese Liste in den State übernehmen und anzeigen (oder bei leeren `products` einmal `GET /sessions/{session_id}/search/products` aufrufen). Siehe Abschnitt 5 oben („Automatisch Produkte laden“) für den genauen Flutter-Code.
+5. **Produkte anzeigen**  
+   Sobald `status === "ready_for_search"`, enthält die Chat-Response automatisch `products` (bis zu 10). Diese Liste anzeigen (z. B. horizontale ListView mit Bild, Name, Preis) – siehe Abschnitt 5 oben. Optional: weitere Produkte mit `GET /sessions/{session_id}/search/products?limit=10&offset=10` laden.
 
 Damit kann dein Freund das Flutter-Frontend vollständig an die bestehende API anbinden.
