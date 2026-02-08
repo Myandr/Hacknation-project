@@ -25,7 +25,7 @@ def run_search(spec: ShoppingSpecOut, limit_per_retailer: int = 8) -> SearchResu
     """Sucht bei allen Händlern, rankt und liefert Erklärung."""
     query = build_search_query(spec)
     category = spec.category if spec.category != "both" else "clothing"
-    raw_products = search_products(query=query, category=category, limit_per_retailer=limit_per_retailer)
+    raw_products = search_products(query=query, category=category, limit_per_retailer=limit_per_retailer, spec=spec)
     ranked = rank_products([p for p in raw_products], spec)
     why_first_text = why_first(ranked, spec)
     ranking_explanation = (

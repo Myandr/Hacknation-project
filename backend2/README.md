@@ -18,7 +18,7 @@ uvicorn main:app --reload --host 0.0.0.0
 ```
 
 - **GOOGLE_API_KEY:** Von [Google AI Studio](https://aistudio.google.com/apikey) (Gemini).
-- **RAPIDAPI_KEY / RAPIDAPI_ASOS_HOST:** Von [RapidAPI](https://rapidapi.com/hub) – nach „ASOS“ suchen (z. B. „asos2“), Key und Host aus der API-Beschreibung übernehmen.
+- **RAPIDAPI_KEY / RAPIDAPI_ASOS_HOST:** ASOS-API **asos10** (DataCrawler): [RapidAPI asos10](https://rapidapi.com/DataCrawler/api/asos10). Host: `asos10.p.rapidapi.com`.
 
 ## API-Überblick
 
@@ -44,7 +44,7 @@ uvicorn main:app --reload --host 0.0.0.0
 
 ## Händler
 
-- **ASOS:** Echte Produktdaten über RapidAPI (Host/Key in `.env`).
+- **ASOS:** Echte Produktdaten über RapidAPI asos10 (DataCrawler). Host: `asos10.p.rapidapi.com`, Key in `.env`. Endpoint-Dokumentation: `backend2/docs/asos10_endpoints.md`.
 - **StyleHub / UrbanOutfit:** Mock-Daten im Code (realistische Ski/Party-Artikel).
 
 ## Dokumentation

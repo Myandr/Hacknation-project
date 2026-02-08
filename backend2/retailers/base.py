@@ -1,6 +1,6 @@
 """Basis-Datenstruktur und Aggregation für alle Händler."""
 from dataclasses import dataclass
-from typing import Callable
+from typing import Any, Callable
 
 from schemas import ProductOut, ProductVariant
 
@@ -39,14 +39,25 @@ def search_all_retailers(
     query: str,
     category: str | None = None,
     limit_per_retailer: int = 10,
+    spec: Any = None,
 ) -> list[RetailerProduct]:
-    """Ruft jeden Händler auf und sammelt Produkte."""
+    """Ruft jeden Händler auf und sammelt Produkte. spec = KI-Brief für country/currency (ASOS)."""
+    from schemas import ShoppingSpecOut
+
     results: list[RetailerProduct] = []
     for retailer_id, search_fn, _ in retailers:
         try:
-            products = search_fn(query=query, category=category, limit=limit_per_retailer)
+            if retailer_id == "asos" and spec is not None and isinstance(spec, ShoppingSpecOut):
+                products = search_fn(
+                    query=query,
+                    category=category,
+                    limit=limit_per_retailer,
+                    country=getattr(spec, "country", None),
+                    currency=getattr(spec, "budget_currency", None),
+                )
+            else:
+                products = search_fn(query=query, category=category, limit=limit_per_retailer)
             results.extend(products)
         except Exception:
-            # Ein Händler fehlschlägt → Rest weiter
             continue
     return results
