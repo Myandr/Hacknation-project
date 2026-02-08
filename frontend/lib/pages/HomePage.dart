@@ -10,6 +10,7 @@ import 'package:hacknation_app/pages/CartPage.dart';
 import 'package:hacknation_app/services/send_message.dart';
 import 'package:hacknation_app/services/search_products.dart';
 import 'package:hacknation_app/services/cart_service.dart';
+import 'package:hacknation_app/services/shopping_plan_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -32,6 +33,9 @@ class _HomePageState extends State<HomePage> {
   List<RankedProduct> _searchResults = [];
   bool _isSearching = false;
   String? _searchError;
+
+  // Google Shopping Ergebnisse
+  List<PlanComponentSearch> _googleShoppingResults = [];
 
   // Warenkorb
   final Set<String> _cartProductIds = {};
@@ -81,15 +85,56 @@ class _HomePageState extends State<HomePage> {
         _isSending = false;
       });
 
-      // Automatisch Suche starten wenn Brief vollständig
+      // Automatisch Shopping Plan erstellen und Google Shopping Suche starten wenn Brief vollständig
       if (response.status == 'ready_for_search') {
-        _triggerSearch();
+        await _createShoppingPlanWithGoogleShopping();
       }
     } catch (e) {
       setState(() {
         _messages.add({'role': 'assistant', 'content': 'Fehler: $e'});
         _isSending = false;
       });
+    }
+  }
+
+  /// Erstellt den Shopping Plan mit Google Shopping Suche.
+  Future<void> _createShoppingPlanWithGoogleShopping() async {
+    if (sessionId == null || _isSearching) return;
+
+    setState(() {
+      _isSearching = true;
+      _searchError = null;
+    });
+
+    debugPrint('Erstelle Shopping Plan mit Google Shopping...');
+    try {
+      final results = await createShoppingPlanWithGoogleShopping(
+        sessionId: sessionId!,
+      );
+
+      // Konvertiere Google Shopping Ergebnisse in RankedProducts für die Anzeige
+      final products = convertGoogleShoppingToRankedProducts(results);
+
+      setState(() {
+        _googleShoppingResults = results;
+        _searchResults = products; // Zeige die Produkte als Suchergebnisse an
+        _isSearching = false;
+      });
+
+      debugPrint(
+        'Shopping Plan mit Google Shopping erstellt: ${results.length} Komponenten, ${products.length} Produkte',
+      );
+      for (var result in results) {
+        debugPrint(
+          '  - ${result.component.name}: ${result.shoppingResults.length} Produkte gefunden',
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _searchError = e.toString();
+        _isSearching = false;
+      });
+      debugPrint('Fehler beim Erstellen des Shopping Plans: $e');
     }
   }
 
