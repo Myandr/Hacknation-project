@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from database import engine, get_db, Base
-from models import ShoppingSession, ShoppingRequirement, ConversationMessage, CartItem, SearchFilter
+from models import ShoppingSession, ShoppingRequirement, ConversationMessage, CartItem
 from schemas import (
     MessageRequest,
     MessageResponse,
@@ -26,8 +26,6 @@ from schemas import (
     PlanComponentSearchOut,
     AddToCartRequest,
     UpdateQuantityRequest,
-    FilterRequest,
-    FilterOut,
 )
 from agent import process_message
 from shopping_planner import run_shopping_plan
@@ -212,43 +210,6 @@ def search(session_id: str, db: Session = Depends(get_db)):
     return result
 
 
-@app.get("/filters", response_model=FilterOut)
-def get_filters(db: Session = Depends(get_db)):
-    """Globale Filter (Größe, Preis, Farbe, Lieferzeit) abrufen."""
-    f = db.query(SearchFilter).first()
-    if not f:
-        return FilterOut()
-    return FilterOut(**f.to_dict())
-
-
-@app.post("/filters", response_model=FilterOut)
-def save_filters(body: FilterRequest, db: Session = Depends(get_db)):
-    """Filter vom Frontend global speichern: Größe (Kleidung/Hose/Schuhe), Preis min/max, Farbe, Lieferzeit."""
-    f = db.query(SearchFilter).first()
-    if f:
-        f.size_clothing = body.size_clothing if body.size_clothing is not None else f.size_clothing
-        f.size_pants = body.size_pants if body.size_pants is not None else f.size_pants
-        f.size_shoes = body.size_shoes if body.size_shoes is not None else f.size_shoes
-        f.price_min = body.price_min if body.price_min is not None else f.price_min
-        f.price_max = body.price_max if body.price_max is not None else f.price_max
-        f.color = body.color if body.color is not None else f.color
-        f.delivery_time_days = body.delivery_time_days if body.delivery_time_days is not None else f.delivery_time_days
-    else:
-        f = SearchFilter(
-            size_clothing=body.size_clothing,
-            size_pants=body.size_pants,
-            size_shoes=body.size_shoes,
-            price_min=body.price_min,
-            price_max=body.price_max,
-            color=body.color,
-            delivery_time_days=body.delivery_time_days,
-        )
-        db.add(f)
-    db.commit()
-    db.refresh(f)
-    return FilterOut(**f.to_dict())
-
-#commit
 @app.get("/sessions/{session_id}/cart", response_model=CartSummaryOut)
 def get_cart(session_id: str, db: Session = Depends(get_db)):
     """Kombinierten Warenkorb abrufen."""
