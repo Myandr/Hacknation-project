@@ -24,12 +24,16 @@ class _MyTextFieldState extends State<MyTextField> {
   bool _isChat = true; // true = Manuell, false = KI
 
   // Filter state
-  RangeValues _priceRange = const RangeValues(0, 500);
-  String _selectedColor = 'Alle';
-  String _selectedDelivery = 'Alle';
+  final TextEditingController _priceFromController = TextEditingController();
+  final TextEditingController _priceToController = TextEditingController();
+  String _selectedColor = 'Alle Farben';
+  String _selectedDelivery = 'Beliebig';
+  bool _filterOpen = false;
+  OverlayEntry? _filterOverlay;
+  final GlobalKey _filterButtonKey = GlobalKey();
 
   static const List<String> _colorOptions = [
-    'Alle',
+    'Alle Farben',
     'Schwarz',
     'Weiß',
     'Rot',
@@ -41,12 +45,26 @@ class _MyTextFieldState extends State<MyTextField> {
   ];
 
   static const List<String> _deliveryOptions = [
-    'Alle',
-    '1-2 Tage',
-    '3-5 Tage',
-    '1-2 Wochen',
-    '2+ Wochen',
+    'Beliebig',
+    '1–3 Tage',
+    '3–7 Tage',
+    '7–14 Tage',
+    '14+ Tage',
   ];
+
+  @override
+  void dispose() {
+    _priceFromController.dispose();
+    _priceToController.dispose();
+    _removeFilterOverlay();
+    super.dispose();
+  }
+
+  void _removeFilterOverlay() {
+    _filterOverlay?.remove();
+    _filterOverlay = null;
+    _filterOpen = false;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -171,7 +189,8 @@ class _MyTextFieldState extends State<MyTextField> {
                   const Spacer(),
                   // Filter button
                   GestureDetector(
-                    onTap: _showFilterPopup,
+                    key: _filterButtonKey,
+                    onTap: _toggleFilterPopup,
                     child: Container(
                       width: 32,
                       height: 32,
@@ -215,230 +234,66 @@ class _MyTextFieldState extends State<MyTextField> {
     );
   }
 
-  void _showFilterPopup() {
-    // Use temp copies so cancel doesn't persist changes
-    RangeValues tempPrice = _priceRange;
-    String tempColor = _selectedColor;
-    String tempDelivery = _selectedDelivery;
+  void _toggleFilterPopup() {
+    if (_filterOpen) {
+      _removeFilterOverlay();
+      setState(() {});
+      return;
+    }
 
-    showDialog(
-      context: context,
+    final renderBox =
+        _filterButtonKey.currentContext!.findRenderObject() as RenderBox;
+    final buttonPos = renderBox.localToGlobal(Offset.zero);
+    const popupWidth = 220.0;
+
+    _filterOverlay = OverlayEntry(
       builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
+        return Stack(
+          children: [
+            // Tap-away dismiss layer
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: () {
+                  _removeFilterOverlay();
+                  setState(() {});
+                },
               ),
-              insetPadding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 80,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header
-                      Row(
-                        children: [
-                          const Icon(Icons.tune_rounded, size: 22),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Filter',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const Spacer(),
-                          GestureDetector(
-                            onTap: () => Navigator.pop(context),
-                            child: const Icon(Icons.close, size: 22),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Price range
-                      const Text(
-                        'Preisspanne',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '${tempPrice.start.round()} €',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                          Text(
-                            '${tempPrice.end.round()} €',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
-                      ),
-                      RangeSlider(
-                        values: tempPrice,
-                        min: 0,
-                        max: 2000,
-                        divisions: 40,
-                        activeColor: Colors.black,
-                        inactiveColor: Colors.grey.shade300,
-                        labels: RangeLabels(
-                          '${tempPrice.start.round()} €',
-                          '${tempPrice.end.round()} €',
-                        ),
-                        onChanged: (values) {
-                          setDialogState(() => tempPrice = values);
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Color
-                      const Text(
-                        'Farbe',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _colorOptions.map((color) {
-                          final selected = tempColor == color;
-                          return GestureDetector(
-                            onTap: () {
-                              setDialogState(() => tempColor = color);
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: selected
-                                    ? Colors.black
-                                    : Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                color,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: selected
-                                      ? Colors.white
-                                      : Colors.black87,
-                                  fontWeight: selected
-                                      ? FontWeight.w600
-                                      : FontWeight.w400,
-                                ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Delivery time
-                      const Text(
-                        'Lieferzeit',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _deliveryOptions.map((delivery) {
-                          final selected = tempDelivery == delivery;
-                          return GestureDetector(
-                            onTap: () {
-                              setDialogState(() => tempDelivery = delivery);
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: selected
-                                    ? Colors.black
-                                    : Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                delivery,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: selected
-                                      ? Colors.white
-                                      : Colors.black87,
-                                  fontWeight: selected
-                                      ? FontWeight.w600
-                                      : FontWeight.w400,
-                                ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Apply button
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            setState(() {
-                              _priceRange = tempPrice;
-                              _selectedColor = tempColor;
-                              _selectedDelivery = tempDelivery;
-                            });
-                            Navigator.pop(context);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                          ),
-                          child: const Text(
-                            'Anwenden',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+            ),
+            // The small popup card above the button
+            Positioned(
+              right:
+                  MediaQuery.of(context).size.width -
+                  buttonPos.dx -
+                  renderBox.size.width,
+              top: buttonPos.dy - 320,
+              child: Material(
+                color: Colors.transparent,
+                child: _FilterPopupCard(
+                  popupWidth: popupWidth,
+                  priceFromController: _priceFromController,
+                  priceToController: _priceToController,
+                  selectedColor: _selectedColor,
+                  selectedDelivery: _selectedDelivery,
+                  colorOptions: _colorOptions,
+                  deliveryOptions: _deliveryOptions,
+                  onColorChanged: (v) {
+                    _selectedColor = v;
+                  },
+                  onDeliveryChanged: (v) {
+                    _selectedDelivery = v;
+                  },
                 ),
               ),
-            );
-          },
+            ),
+          ],
         );
       },
     );
+
+    Overlay.of(context).insert(_filterOverlay!);
+    _filterOpen = true;
+    setState(() {});
   }
 
   Widget _buildToggleOption(String label, bool isSelected) {
@@ -532,5 +387,303 @@ class _DashedBorderPainter extends CustomPainter {
         oldDelegate.dashLength != dashLength ||
         oldDelegate.gapLength != gapLength ||
         oldDelegate.borderRadius != borderRadius;
+  }
+}
+
+/// Compact filter popup card matching the mockup design
+class _FilterPopupCard extends StatefulWidget {
+  final double popupWidth;
+  final TextEditingController priceFromController;
+  final TextEditingController priceToController;
+  final String selectedColor;
+  final String selectedDelivery;
+  final List<String> colorOptions;
+  final List<String> deliveryOptions;
+  final ValueChanged<String> onColorChanged;
+  final ValueChanged<String> onDeliveryChanged;
+
+  const _FilterPopupCard({
+    required this.popupWidth,
+    required this.priceFromController,
+    required this.priceToController,
+    required this.selectedColor,
+    required this.selectedDelivery,
+    required this.colorOptions,
+    required this.deliveryOptions,
+    required this.onColorChanged,
+    required this.onDeliveryChanged,
+  });
+
+  @override
+  State<_FilterPopupCard> createState() => _FilterPopupCardState();
+}
+
+class _FilterPopupCardState extends State<_FilterPopupCard> {
+  late String _color;
+  late String _delivery;
+  bool _colorExpanded = false;
+  bool _deliveryExpanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _color = widget.colorOptions.contains(widget.selectedColor)
+        ? widget.selectedColor
+        : widget.colorOptions.first;
+    _delivery = widget.deliveryOptions.contains(widget.selectedDelivery)
+        ? widget.selectedDelivery
+        : widget.deliveryOptions.first;
+  }
+
+  InputDecoration _fieldDecoration(String hint) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      isDense: true,
+      filled: true,
+      fillColor: Colors.grey.shade100,
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide.none,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: widget.popupWidth,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.10),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Title
+          const Text(
+            'Filter',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: Colors.black,
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // PREISSPANNE
+          Text(
+            'PREISSPANNE',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade600,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: widget.priceFromController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(fontSize: 13),
+                  decoration: _fieldDecoration('Von'),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Text(
+                  '–',
+                  style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+                ),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: widget.priceToController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(fontSize: 13),
+                  decoration: _fieldDecoration('Bis'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // FARBEN
+          Text(
+            'FARBEN',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade600,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 6),
+          _buildInlineSelector(
+            value: _color,
+            items: widget.colorOptions,
+            expanded: _colorExpanded,
+            onTap: () {
+              setState(() {
+                _colorExpanded = !_colorExpanded;
+                _deliveryExpanded = false;
+              });
+            },
+            onChanged: (v) {
+              setState(() {
+                _color = v;
+                _colorExpanded = false;
+              });
+              widget.onColorChanged(v);
+            },
+          ),
+          const SizedBox(height: 14),
+
+          // DELIVERY TIME
+          Text(
+            'DELIVERY TIME',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade600,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 6),
+          _buildInlineSelector(
+            value: _delivery,
+            items: widget.deliveryOptions,
+            expanded: _deliveryExpanded,
+            onTap: () {
+              setState(() {
+                _deliveryExpanded = !_deliveryExpanded;
+                _colorExpanded = false;
+              });
+            },
+            onChanged: (v) {
+              setState(() {
+                _delivery = v;
+                _deliveryExpanded = false;
+              });
+              widget.onDeliveryChanged(v);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInlineSelector({
+    required String value,
+    required List<String> items,
+    required bool expanded,
+    required VoidCallback onTap,
+    required ValueChanged<String> onChanged,
+  }) {
+    // Only show non-selected items in the expanded list
+    final otherItems = items.where((i) => i != value).toList();
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // The selector button
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    value,
+                    style: const TextStyle(fontSize: 13, color: Colors.black87),
+                  ),
+                ),
+                AnimatedRotation(
+                  turns: expanded ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 20,
+                    color: Colors.grey.shade500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // Expanded options list
+        AnimatedCrossFade(
+          firstChild: const SizedBox.shrink(),
+          secondChild: Container(
+            margin: const EdgeInsets.only(top: 4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.grey.shade200),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 120),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: otherItems.map((item) {
+                    return GestureDetector(
+                      onTap: () => onChanged(item),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        child: Text(
+                          item,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+          ),
+          crossFadeState: expanded
+              ? CrossFadeState.showSecond
+              : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 200),
+        ),
+      ],
+    );
   }
 }

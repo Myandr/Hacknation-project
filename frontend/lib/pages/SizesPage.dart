@@ -53,7 +53,7 @@ class _SizesPageState extends State<SizesPage> {
         children: [
           // ── Header ──
           Padding(
-            padding: const EdgeInsets.only(top: 16, left: 12, right: 20),
+            padding: const EdgeInsets.only(top: 16, left: 12, right: 12),
             child: Row(
               children: [
                 IconButton(

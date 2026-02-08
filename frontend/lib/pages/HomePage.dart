@@ -1,10 +1,14 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hacknation_app/components/MyQuestionTile.dart';
+import 'package:hacknation_app/components/MyResults.dart';
 import 'package:hacknation_app/components/MyTextField.dart';
 import 'package:hacknation_app/services/create_session.dart';
 import 'package:hacknation_app/pages/ProfilePage.dart';
+import 'package:hacknation_app/pages/CartPage.dart';
 import 'package:hacknation_app/services/send_message.dart';
+import 'package:hacknation_app/services/search_products.dart';
+import 'package:hacknation_app/services/cart_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -21,6 +25,16 @@ class _HomePageState extends State<HomePage> {
   final TextEditingController _messageController = TextEditingController();
   final List<Map<String, String>> _messages = []; // {role, content}
   bool _isSending = false;
+  String _sessionStatus = 'chatting';
+
+  // Suche
+  List<RankedProduct> _searchResults = [];
+  bool _isSearching = false;
+  String? _searchError;
+
+  // Warenkorb
+  final Set<String> _cartProductIds = {};
+  int _cartItemCount = 0;
 
   @override
   void initState() {
@@ -59,13 +73,44 @@ class _HomePageState extends State<HomePage> {
       final response = await sendMessage(sessionId: sessionId!, message: text);
       setState(() {
         _messages.add({'role': 'assistant', 'content': response.reply});
+        _sessionStatus = response.status;
         _isSending = false;
       });
+
+      // Automatisch Suche starten wenn Brief vollständig
+      if (response.status == 'ready_for_search') {
+        _triggerSearch();
+      }
     } catch (e) {
       setState(() {
         _messages.add({'role': 'assistant', 'content': 'Fehler: $e'});
         _isSending = false;
       });
+    }
+  }
+
+  /// Startet die Multi-Retailer-Suche.
+  Future<void> _triggerSearch() async {
+    if (sessionId == null || _isSearching) return;
+
+    setState(() {
+      _isSearching = true;
+      _searchError = null;
+    });
+
+    try {
+      final result = await searchProducts(sessionId: sessionId!);
+      setState(() {
+        _searchResults = result.products;
+        _isSearching = false;
+      });
+      debugPrint('Suche abgeschlossen: ${result.products.length} Produkte');
+    } catch (e) {
+      setState(() {
+        _searchError = e.toString();
+        _isSearching = false;
+      });
+      debugPrint('Fehler bei der Suche: $e');
     }
   }
 
@@ -86,6 +131,59 @@ class _HomePageState extends State<HomePage> {
       }
     }
     return pairs;
+  }
+
+  /// Produkt in den Warenkorb legen.
+  Future<void> _addToCart(RankedProduct product) async {
+    if (sessionId == null) return;
+
+    try {
+      await addToCart(sessionId: sessionId!, product: product);
+      setState(() {
+        _cartProductIds.add(product.productId);
+        _cartItemCount++;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${product.title} in den Warenkorb gelegt'),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Fehler: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  /// Öffnet den Warenkorb.
+  void _openCart() {
+    if (sessionId == null) return;
+    showCartSheet(
+      context,
+      sessionId: sessionId!,
+      onCartChanged: _refreshCartCount,
+    );
+  }
+
+  /// Aktualisiert den Warenkorb-Zähler.
+  Future<void> _refreshCartCount() async {
+    if (sessionId == null) return;
+    try {
+      final cart = await getCart(sessionId: sessionId!);
+      setState(() {
+        _cartItemCount = cart.items.length;
+        _cartProductIds.clear();
+        for (final item in cart.items) {
+          _cartProductIds.add(item.productId);
+        }
+      });
+    } catch (_) {}
   }
 
   /// Gibt true zurück, wenn es noch keine KI-Frage gibt (erster Schritt).
@@ -111,9 +209,36 @@ class _HomePageState extends State<HomePage> {
         title: const Text('Ski Outfit', style: TextStyle(color: Colors.black)),
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: const Icon(CupertinoIcons.shopping_cart, color: Colors.black),
-            onPressed: () {},
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(
+                  CupertinoIcons.shopping_cart,
+                  color: Colors.black,
+                ),
+                onPressed: _openCart,
+              ),
+              if (_cartItemCount > 0)
+                Positioned(
+                  right: 4,
+                  top: 4,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '$_cartItemCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ],
       ),
@@ -134,13 +259,34 @@ class _HomePageState extends State<HomePage> {
                         style: TextStyle(color: Colors.grey),
                       ),
                     )
-                  : ListView.builder(
+                  : ListView(
                       padding: const EdgeInsets.only(top: 8),
-                      itemCount:
-                          _questionAnswerPairs.length + (_isSending ? 1 : 0),
-                      itemBuilder: (context, index) {
-                        if (index == _questionAnswerPairs.length) {
-                          return const Align(
+                      children: [
+                        // Chat-Verlauf
+                        ..._questionAnswerPairs.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final pair = entry.value;
+                          final isLast =
+                              index == _questionAnswerPairs.length - 1;
+                          final hasNoAnswer = pair['answer'] == null;
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: MyQuestionTile(
+                              question: pair['question']!,
+                              answer: pair['answer'],
+                              onAnswerSubmitted:
+                                  (isLast &&
+                                      hasNoAnswer &&
+                                      !_isSearching &&
+                                      _searchResults.isEmpty)
+                                  ? _sendMessage
+                                  : null,
+                            ),
+                          );
+                        }),
+                        // Lade-Indikator (Chat)
+                        if (_isSending)
+                          const Align(
                             alignment: Alignment.centerLeft,
                             child: Padding(
                               padding: EdgeInsets.all(12),
@@ -152,29 +298,61 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ),
                             ),
-                          );
-                        }
-                        final pair = _questionAnswerPairs[index];
-                        final isLast = index == _questionAnswerPairs.length - 1;
-                        final hasNoAnswer = pair['answer'] == null;
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 6),
-                          child: MyQuestionTile(
-                            question: pair['question']!,
-                            answer: pair['answer'],
-                            onAnswerSubmitted: (isLast && hasNoAnswer)
-                                ? _sendMessage
-                                : null,
                           ),
-                        );
-                      },
+                        // Suche läuft
+                        if (_isSearching)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 20),
+                            child: Center(
+                              child: Column(
+                                children: [
+                                  CircularProgressIndicator(),
+                                  SizedBox(height: 12),
+                                  Text(
+                                    'Suche läuft...',
+                                    style: TextStyle(color: Colors.grey),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        // Suche-Fehler
+                        if (_searchError != null)
+                          Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Text(
+                              'Fehler bei der Suche: $_searchError',
+                              style: const TextStyle(color: Colors.red),
+                            ),
+                          ),
+                        // Suchergebnisse
+                        if (_searchResults.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12, bottom: 4),
+                            child: Text(
+                              '${_searchResults.length} Produkte gefunden',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        if (_searchResults.isNotEmpty)
+                          MyResults(
+                            products: _searchResults,
+                            onAddToCart: _addToCart,
+                            cartProductIds: _cartProductIds,
+                          ),
+                      ],
                     ),
             ),
-            MyTextField(
-              controller: _messageController,
-              onSend: _sendMessage,
-              enabled: _showBottomTextField,
-            ),
+            if (_sessionStatus != 'ready_for_search' && _searchResults.isEmpty)
+              MyTextField(
+                controller: _messageController,
+                onSend: _sendMessage,
+                enabled: _showBottomTextField,
+              ),
           ],
         ),
       ),
