@@ -43,20 +43,32 @@ Header: `X-RapidAPI-Key`, `X-RapidAPI-Host: asos10.p.rapidapi.com`
 
 ## 5. Product Search / Listing
 
-- **Kritisch für Suche.** Exakte URL und Parameter im Playground unter „Product Search and Listing“ bzw. „Product“ prüfen.
-- **Vermutung (ohne Playground):** GET `https://asos10.p.rapidapi.com/api/v1/searchProducts` oder `/api/v1/products` mit Query-Parametern z. B.:
-  - `query` / `q` / `keyword`: Suchbegriff (aus KI-Brief: reason, event_type, preferences, must_haves)
-  - `country` / `store`: Land (aus spec.country)
-  - `categoryId` / `category`: aus Get-Categories-Mapping
-  - `limit` / `pageSize`: Anzahl
-- **Response:** Typisch `products[]` oder `items[]` mit Objekten (id, title/name, price, imageUrl, url, variants, delivery). Parser in `asos_api._parse_asos_response` an die tatsächliche Struktur anpassen.
+- **Kritisch für Suche.** Im Playground unter „Product Search and Listing“ / „Product“ die **exakte Request-URL** prüfen (nur der Pfad ab Host, z. B. `/api/v1/getProducts`).
+- **Konfiguration:** In `.env` kannst du den exakten Pfad setzen: `ASOS_SEARCH_ENDPOINT=/api/v1/getProducts` (Wert aus dem Playground). Dann wird nur dieser Endpoint verwendet.
+- **Ohne ASOS_SEARCH_ENDPOINT** probiert der Code nacheinander: `getProducts`, `getProductList`, `searchProducts`, `productSearch`, `products`, `product/list`, `search`, `product/search`, `v2/products/list`.
+- **Parameter:** Es werden u. a. `query`/`q`/`keyword`/`searchTerm`, `limit`/`pageSize`, `country`/`store` ausprobiert.
+- **Response:** Parser unterstützt `products`, `results`, `items`, `data`, `list`, `productList`. Felder: id/productId, price/priceInfo/currentPrice, name/title/productTitle, imageUrl, url/link, variants/sizes, delivery.
 
 ---
 
-## 6. Product Detail (einzelnes Produkt)
+## 6. Product Detail (getProductDetails)
 
-- Falls im Playground ein Endpoint für ein einzelnes Produkt existiert (z. B. `/api/v1/product?id=...`): für Warenkorb-Details oder Checkout nutzen.
-- URL/Parameter/Response aus Playground hier ergänzen.
+- **Methode:** GET
+- **URL:** `https://asos10.p.rapidapi.com/api/v1/getProductDetails`
+- **Parameter (laut Playground):**
+  - `currency` (z. B. USD, EUR)
+  - `store` (z. B. US, DE, GB)
+  - `language` (z. B. en-US, de-DE)
+  - `sizeSchema` (z. B. US, EU)
+  - Für ein einzelnes Produkt zusätzlich: `productId` oder `id` oder `articleId`
+- **Beispiel (cURL):**
+  ```bash
+  curl --request GET \
+    --url 'https://asos10.p.rapidapi.com/api/v1/getProductDetails?currency=USD&store=US&language=en-US&sizeSchema=US' \
+    --header 'x-rapidapi-host: asos10.p.rapidapi.com' \
+    --header 'x-rapidapi-key: YOUR_KEY'
+  ```
+- Im Code: `get_product_detail(product_id, currency=..., store=..., language=..., country_code=...)` nutzt diesen Endpoint; für die Suche wird getProductDetails ebenfalls mit `currency`, `store`, `language`, `sizeSchema` (und ggf. `query`/`q`) probiert.
 
 ---
 

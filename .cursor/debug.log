@@ -1,8 +1,4 @@
-{"id":"retailers_base_entry","timestamp":0,"location":"retailers/base.py","message":"retailers.base loading, about to import schemas","data":{"hypothesisId":"H1"},"runId":"import"}
-{"id":"retailers_base_entry","timestamp":0,"location":"retailers/base.py","message":"retailers.base loading, about to import schemas","data":{"hypothesisId":"H1"},"runId":"import"}
-{"id":"retailers_base_entry","timestamp":0,"location":"retailers/base.py","message":"retailers.base loading, about to import schemas","data":{"hypothesisId":"H1"},"runId":"import"}
-{"id":"main_entry","timestamp":1770508825176,"location":"main.py","message":"main loading","data":{"hypothesisId":"H1"},"runId":"import"}
-{"id":"retailers_base_entry","timestamp":0,"location":"retailers/base.py","message":"retailers.base loading, about to import schemas","data":{"hypothesisId":"H1"},"runId":"import"}
-{"id":"main_entry","timestamp":1770508827585,"location":"main.py","message":"main loading","data":{"hypothesisId":"H1"},"runId":"import"}
-{"id":"retailers_base_entry","timestamp":1770508827804,"location":"retailers/base.py","message":"retailers.base loading, about to import schemas","data":{"hypothesisId":"H1"},"runId":"import"}
-{"id":"retailers_base_entry","timestamp":1770508844650,"location":"retailers/base.py","message":"retailers.base loading, about to import schemas","data":{"hypothesisId":"H1"},"runId":"import"}
+{"location":"asos_api.get_categories(dict_path)","message":"extracted raw","data":{"raw_type":'dict',"top_keys":['status', 'timestamp', 'data']},"hypothesisId":"H1,H3","timestamp":1770514925342856000}
+{"location":"asos_api.get_categories(exit)","message":"cache assigned","data":{"type":'list',"is_list":True,"len":3},"hypothesisId":"H1,H2","timestamp":1770514925343131000}
+{"location":"asos_api.get_categories(dict_path)","message":"extracted raw","data":{"raw_type":'dict',"top_keys":['status', 'timestamp', 'data']},"hypothesisId":"H1,H3","timestamp":1770515276641334000}
+{"location":"asos_api.get_categories(exit)","message":"cache assigned","data":{"type":'list',"is_list":True,"len":3},"hypothesisId":"H1,H2","timestamp":1770515276641561000}
