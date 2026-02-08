@@ -74,6 +74,7 @@ class ShoppingRequirement(Base):
 
     session = relationship("ShoppingSession", back_populates="requirements")
 
+    def to_dict(self) -> dict:
         return {
             "budget_min": self.budget_min,
             "budget_max": self.budget_max,
