@@ -37,6 +37,7 @@ class _MyTextFieldState extends State<MyTextField> {
   bool _filterOpen = false;
   OverlayEntry? _filterOverlay;
   final GlobalKey _filterButtonKey = GlobalKey();
+  bool _filtersLoaded = false;
 
   // File upload state
   final List<File> _selectedFiles = [];
@@ -223,10 +224,54 @@ class _MyTextFieldState extends State<MyTextField> {
     _filterOpen = false;
   }
 
+  void _handleSend() {
+    if (widget.controller == null) {
+      widget.onSend?.call();
+      return;
+    }
+
+    // Hole den aktuellen Text
+    String message = widget.controller!.text.trim();
+
+    // Füge Filter hinzu (Preis, Farbe, Lieferzeit)
+    List<String> filters = [];
+
+    if (_priceFromController.text.isNotEmpty ||
+        _priceToController.text.isNotEmpty) {
+      String priceFilter = 'Preis:';
+      if (_priceFromController.text.isNotEmpty) {
+        priceFilter += ' von ${_priceFromController.text}€';
+      }
+      if (_priceToController.text.isNotEmpty) {
+        priceFilter += ' bis ${_priceToController.text}€';
+      }
+      filters.add(priceFilter);
+    }
+
+    if (_selectedColor != 'Alle Farben') {
+      filters.add('Farbe: $_selectedColor');
+    }
+
+    if (_selectedDelivery != 'Beliebig') {
+      filters.add('Lieferzeit: $_selectedDelivery');
+    }
+
+    // Hänge Filter an die Nachricht an
+    if (filters.isNotEmpty) {
+      message = '$message, ${filters.join(', ')}';
+      widget.controller!.text = message;
+    }
+
+    // Debug: Zeige den angepassten Prompt
+    debugPrint('📝 Angepasster Prompt mit Filtern: $message');
+
+    // Rufe die ursprüngliche onSend-Funktion auf
+    widget.onSend?.call();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
-      alignment: Alignment.center,
       children: [
         // Pink blur glow behind the text field
         Container(
@@ -386,7 +431,7 @@ class _MyTextFieldState extends State<MyTextField> {
                   const SizedBox(width: 8),
                   // Send button
                   GestureDetector(
-                    onTap: widget.enabled ? widget.onSend : null,
+                    onTap: widget.enabled ? _handleSend : null,
                     child: Container(
                       width: 32,
                       height: 32,
@@ -412,11 +457,16 @@ class _MyTextFieldState extends State<MyTextField> {
     );
   }
 
-  void _toggleFilterPopup() {
+  void _toggleFilterPopup() async {
     if (_filterOpen) {
       _removeFilterOverlay();
       setState(() {});
       return;
+    }
+
+    // Lade Filter beim Öffnen (nur Preis, Farbe, Lieferzeit - nicht speichern)
+    if (!_filtersLoaded) {
+      _filtersLoaded = true;
     }
 
     final renderBox =

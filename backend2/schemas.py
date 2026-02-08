@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 class FilterRequest(BaseModel):
     """Filter-Daten vom Frontend: Größe, Preis, Farbe, Lieferzeit."""
+    gender: str | None = None         # male oder female
     size_clothing: str | None = None   # z.B. XS, S, M, L
     size_pants: str | None = None     # z.B. 28, 30, 32
     size_shoes: str | None = None     # z.B. 40, 41, 42
@@ -20,6 +21,7 @@ class FilterRequest(BaseModel):
 
 class FilterOut(BaseModel):
     """Gespeicherte Filter (Response)."""
+    gender: str | None = None
     size_clothing: str | None = None
     size_pants: str | None = None
     size_shoes: str | None = None

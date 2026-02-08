@@ -223,9 +223,10 @@ def get_filters(db: Session = Depends(get_db)):
 
 @app.post("/filters", response_model=FilterOut)
 def save_filters(body: FilterRequest, db: Session = Depends(get_db)):
-    """Filter vom Frontend global speichern: Größe (Kleidung/Hose/Schuhe), Preis min/max, Farbe, Lieferzeit."""
+    """Filter vom Frontend global speichern: Geschlecht, Größe (Kleidung/Hose/Schuhe), Preis min/max, Farbe, Lieferzeit."""
     f = db.query(SearchFilter).first()
     if f:
+        f.gender = body.gender if body.gender is not None else f.gender
         f.size_clothing = body.size_clothing if body.size_clothing is not None else f.size_clothing
         f.size_pants = body.size_pants if body.size_pants is not None else f.size_pants
         f.size_shoes = body.size_shoes if body.size_shoes is not None else f.size_shoes
@@ -235,6 +236,7 @@ def save_filters(body: FilterRequest, db: Session = Depends(get_db)):
         f.delivery_time_days = body.delivery_time_days if body.delivery_time_days is not None else f.delivery_time_days
     else:
         f = SearchFilter(
+            gender=body.gender,
             size_clothing=body.size_clothing,
             size_pants=body.size_pants,
             size_shoes=body.size_shoes,

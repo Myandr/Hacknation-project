@@ -162,6 +162,9 @@ class SearchFilter(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
 
+    # Geschlecht
+    gender = Column(String, nullable=True)  # male oder female
+
     # Größe: Kleidung (z.B. XS, S, M, L), Hose (z.B. 28, 30), Schuhe (z.B. 40, 42)
     size_clothing = Column(String, nullable=True)
     size_pants = Column(String, nullable=True)
@@ -178,6 +181,7 @@ class SearchFilter(Base):
 
     def to_dict(self) -> dict:
         return {
+            "gender": self.gender,
             "size_clothing": self.size_clothing,
             "size_pants": self.size_pants,
             "size_shoes": self.size_shoes,
