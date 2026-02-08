@@ -2,8 +2,6 @@
 Agentic Commerce API – FastAPI Backend.
 Konversationeller Brief, Multi-Händler-Suche, Ranking, kombinierter Warenkorb, simulierter Checkout.
 """
-import json
-from datetime import date, timedelta
 from pathlib import Path
 
 from fastapi import FastAPI, Depends, HTTPException
@@ -89,36 +87,11 @@ def health():
     return {"status": "ok"}
 
 
-def _apply_global_filters_to_requirement(req: ShoppingRequirement, db: Session) -> None:
-    """Globale Filter als Default in die ShoppingRequirement übernehmen."""
-    f = db.query(SearchFilter).first()
-    if not f:
-        return
-    if f.price_min is not None:
-        req.budget_min = f.price_min
-    if f.price_max is not None:
-        req.budget_max = f.price_max
-    if f.delivery_time_days is not None:
-        req.delivery_deadline = (date.today() + timedelta(days=f.delivery_time_days)).strftime("%Y-%m-%d")
-    prefs = []
-    if f.color:
-        prefs.append(f"Farbe: {f.color.strip()}")
-    if f.size_clothing:
-        prefs.append(f"Größe Kleidung: {f.size_clothing.strip()}")
-    if f.size_pants:
-        prefs.append(f"Größe Hose: {f.size_pants.strip()}")
-    if f.size_shoes:
-        prefs.append(f"Größe Schuhe: {f.size_shoes.strip()}")
-    if prefs:
-        req.preferences = json.dumps(prefs)
-
-
 @app.post("/sessions", response_model=SessionResponse)
 def create_session(db: Session = Depends(get_db)):
-    """Neue Shopping-Session anlegen (Brief + Cart). Globale Filter werden als Default übernommen."""
+    """Neue Shopping-Session anlegen (Brief + Cart)."""
     session = ShoppingSession()
     req = ShoppingRequirement(session_id=session.id)
-    _apply_global_filters_to_requirement(req, db)
     session.requirements = req
     db.add(session)
     db.commit()
