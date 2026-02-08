@@ -1,32 +1,64 @@
-"""Multi-Retailer-Suche + Ranking → SearchResultOut."""
-from schemas import ShoppingSpecOut, SearchResultOut, RankedProductOut
+"""Suche basierend auf User-Brief (Agent-Daten) → API-Service getProductList → Ranking → SearchResultOut."""
+from schemas import ShoppingSpecOut, SearchResultOut
 
-from retailers import search_products, RetailerProduct
+from api_service import get_reference_data, get_product_list
+from retailers.asos_api import (
+    _category_to_api_id,
+    _normalize_country_code,
+    _parse_asos_response,
+    _store_language_for_country,
+)
 from ranking import rank_products, why_first
 
 
-def build_search_query(spec: ShoppingSpecOut) -> str:
-    """Erzeugt aus dem Brief eine Suchanfrage für die Händler."""
-    parts = []
-    if spec.reason:
-        parts.append(spec.reason)
-    if spec.event_type:
-        parts.append(spec.event_type)
-    if spec.preferences:
-        parts.extend(spec.preferences[:3])
-    if spec.must_haves:
-        parts.extend(spec.must_haves[:2])
-    if spec.category and spec.category != "other":
-        parts.append(spec.category)
-    return " ".join(parts) if parts else "outfit clothing"
+def _spec_to_product_list_params(spec: ShoppingSpecOut, limit_per_retailer: int = 50) -> dict:
+    """Leitet aus dem Brief (User-Antworten) die Parameter für getProductList ab."""
+    country = _normalize_country_code(spec.country) if spec.country else "DE"
+    store, language = _store_language_for_country(country)
+    language_short = language.split("-")[0] if language else "en"
+    size_schema = "US" if store == "US" else "EU"
+    currency = (spec.budget_currency or "EUR").strip().upper()
+    category_id = _category_to_api_id(spec.category)
+
+    return {
+        "category_id": category_id,
+        "currency": currency,
+        "country": country,
+        "store": store,
+        "language_short": language_short,
+        "size_schema": size_schema,
+        "limit": min(200, max(1, limit_per_retailer or 50)),
+        "offset": 0,
+        "sort": "recommended",
+        "price_min": spec.budget_min,
+        "price_max": spec.budget_max,
+    }
 
 
-def run_search(spec: ShoppingSpecOut, limit_per_retailer: int = 8) -> SearchResultOut:
-    """Sucht bei allen Händlern, rankt und liefert Erklärung."""
-    query = build_search_query(spec)
-    category = spec.category if spec.category != "both" else "clothing"
-    raw_products = search_products(query=query, category=category, limit_per_retailer=limit_per_retailer, spec=spec)
-    ranked = rank_products([p for p in raw_products], spec)
+def run_search(spec: ShoppingSpecOut, limit_per_retailer: int = 50) -> SearchResultOut:
+    """
+    Sucht passende Produkte basierend auf den vom Agent erfassten User-Daten (Brief).
+    Lädt Referenzdaten, ruft getProductList mit brief-basierten Parametern auf,
+    konvertiert zu RetailerProduct, rankt und liefert das Ergebnis für die Search-Funktion.
+    """
+    # Referenzdaten laden (Categories, Countries, ReturnCharges), damit Kategorie/Land gültig sind
+    get_reference_data()
+
+    params = _spec_to_product_list_params(spec, limit_per_retailer)
+    raw_list = get_product_list(**params)
+    # Fallback: Wenn API keine Treffer liefert, ohne category_id und Preisgrenzen erneut versuchen
+    if not raw_list:
+        fallback_params = {**params, "category_id": None, "price_min": None, "price_max": None}
+        raw_list = get_product_list(**fallback_params)
+
+    currency = params["currency"]
+    products = _parse_asos_response(
+        {"products": raw_list, "productList": raw_list},
+        limit=len(raw_list),
+        currency=currency,
+    )
+
+    ranked = rank_products(products, spec)
     why_first_text = why_first(ranked, spec)
     ranking_explanation = (
         "Bewertung nach: Gesamtkosten, Lieferfähigkeit bis Frist, "
