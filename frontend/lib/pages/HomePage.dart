@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hacknation_app/components/MyQuestionTile.dart';
@@ -35,6 +36,9 @@ class _HomePageState extends State<HomePage> {
   // Warenkorb
   final Set<String> _cartProductIds = {};
   int _cartItemCount = 0;
+
+  // File uploads
+  final List<File> _selectedFiles = [];
 
   @override
   void initState() {
@@ -195,6 +199,18 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
+  void _onFilesChanged(List<File> files) {
+    setState(() {
+      _selectedFiles.clear();
+      _selectedFiles.addAll(files);
+    });
+    // TODO: Handle file upload logic here
+    // For now, just print the file names
+    print(
+      'Selected files: ${files.map((f) => f.path.split('/').last).join(', ')}',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -351,6 +367,7 @@ class _HomePageState extends State<HomePage> {
               MyTextField(
                 controller: _messageController,
                 onSend: _sendMessage,
+                onFilesChanged: _onFilesChanged,
                 enabled: _showBottomTextField,
               ),
           ],

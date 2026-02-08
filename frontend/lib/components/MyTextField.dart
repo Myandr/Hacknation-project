@@ -1,10 +1,15 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 
 class MyTextField extends StatefulWidget {
   final TextEditingController? controller;
   final String hintText;
   final VoidCallback? onSend;
   final ValueChanged<bool>? onModeChanged;
+  final ValueChanged<List<File>>? onFilesChanged;
   final bool enabled;
 
   const MyTextField({
@@ -13,6 +18,7 @@ class MyTextField extends StatefulWidget {
     this.hintText = 'Ask anything...',
     this.onSend,
     this.onModeChanged,
+    this.onFilesChanged,
     this.enabled = true,
   });
 
@@ -21,7 +27,7 @@ class MyTextField extends StatefulWidget {
 }
 
 class _MyTextFieldState extends State<MyTextField> {
-  bool _isChat = true; // true = Manuell, false = KI
+  bool _isChat = true; // true = Chat, false = Upload
 
   // Filter state
   final TextEditingController _priceFromController = TextEditingController();
@@ -31,6 +37,10 @@ class _MyTextFieldState extends State<MyTextField> {
   bool _filterOpen = false;
   OverlayEntry? _filterOverlay;
   final GlobalKey _filterButtonKey = GlobalKey();
+
+  // File upload state
+  final List<File> _selectedFiles = [];
+  final ImagePicker _imagePicker = ImagePicker();
 
   static const List<String> _colorOptions = [
     'Alle Farben',
@@ -58,6 +68,153 @@ class _MyTextFieldState extends State<MyTextField> {
     _priceToController.dispose();
     _removeFilterOverlay();
     super.dispose();
+  }
+
+  void _showFilePickerOptions() {
+    if (Platform.isIOS) {
+      showCupertinoModalPopup<void>(
+        context: context,
+        builder: (BuildContext context) => CupertinoActionSheet(
+          title: const Text('Datei auswählen'),
+          actions: <CupertinoActionSheetAction>[
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.pop(context);
+                _pickImages();
+              },
+              child: const Text('Fotos aus Mediathek'),
+            ),
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.pop(context);
+                _takePhoto();
+              },
+              child: const Text('Foto aufnehmen'),
+            ),
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.pop(context);
+                _pickFiles();
+              },
+              child: const Text('Dateien auswählen'),
+            ),
+          ],
+          cancelButton: CupertinoActionSheetAction(
+            isDestructiveAction: true,
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: const Text('Abbrechen'),
+          ),
+        ),
+      );
+    } else {
+      showModalBottomSheet(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (context) => Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Fotos aus Galerie'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImages();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Foto aufnehmen'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _takePhoto();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.attach_file),
+                title: const Text('Dateien auswählen'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickFiles();
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _pickImages() async {
+    try {
+      final List<XFile> images = await _imagePicker.pickMultiImage();
+      if (images.isNotEmpty) {
+        final List<File> newFiles = images
+            .map((xFile) => File(xFile.path))
+            .toList();
+        _addFiles(newFiles);
+      }
+    } catch (e) {
+      _showError('Fehler beim Auswählen der Bilder: $e');
+    }
+  }
+
+  Future<void> _takePhoto() async {
+    try {
+      final XFile? photo = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+      );
+      if (photo != null) {
+        _addFiles([File(photo.path)]);
+      }
+    } catch (e) {
+      _showError('Fehler beim Aufnehmen des Fotos: $e');
+    }
+  }
+
+  Future<void> _pickFiles() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx', 'txt'],
+      );
+
+      if (result != null) {
+        final List<File> newFiles = result.paths
+            .where((path) => path != null)
+            .map((path) => File(path!))
+            .toList();
+        _addFiles(newFiles);
+      }
+    } catch (e) {
+      _showError('Fehler beim Auswählen der Dateien: $e');
+    }
+  }
+
+  void _addFiles(List<File> newFiles) {
+    setState(() {
+      _selectedFiles.addAll(newFiles);
+    });
+    widget.onFilesChanged?.call(_selectedFiles);
+  }
+
+  void _removeFile(int index) {
+    setState(() {
+      _selectedFiles.removeAt(index);
+    });
+    widget.onFilesChanged?.call(_selectedFiles);
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _removeFilterOverlay() {
@@ -101,6 +258,29 @@ class _MyTextFieldState extends State<MyTextField> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // File previews
+              if (_selectedFiles.isNotEmpty) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.only(
+                    left: 12,
+                    right: 12,
+                    top: 8,
+                    bottom: 4,
+                  ),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _selectedFiles.asMap().entries.map((entry) {
+                      return _FilePreviewChip(
+                        file: entry.value,
+                        onRemove: () => _removeFile(entry.key),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                if (_isChat) const Divider(height: 1, color: Color(0xFFE0E0E0)),
+              ],
               // Text input area or Upload area
               if (_isChat)
                 TextField(
@@ -123,9 +303,7 @@ class _MyTextFieldState extends State<MyTextField> {
                 )
               else
                 GestureDetector(
-                  onTap: () {
-                    // TODO: implement file picker
-                  },
+                  onTap: _showFilePickerOptions,
                   child: Container(
                     margin: const EdgeInsets.all(8),
                     child: CustomPaint(
@@ -685,5 +863,120 @@ class _FilterPopupCardState extends State<_FilterPopupCard> {
         ),
       ],
     );
+  }
+}
+
+class _FilePreviewChip extends StatelessWidget {
+  final File file;
+  final VoidCallback onRemove;
+
+  const _FilePreviewChip({required this.file, required this.onRemove});
+
+  @override
+  Widget build(BuildContext context) {
+    final String fileName = file.path.split('/').last;
+    final String extension = fileName.split('.').last.toLowerCase();
+    final bool isImage = ['jpg', 'jpeg', 'png', 'gif'].contains(extension);
+
+    return Container(
+      height: 32,
+      padding: const EdgeInsets.only(left: 8, right: 4),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade300, width: 0.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // File icon or thumbnail
+          Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: _getFileTypeColor(extension),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Center(
+              child: isImage
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: Image.file(
+                        file,
+                        width: 20,
+                        height: 20,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            Icon(Icons.image, size: 12, color: Colors.white),
+                      ),
+                    )
+                  : Icon(
+                      _getFileTypeIcon(extension),
+                      size: 12,
+                      color: Colors.white,
+                    ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          // File name
+          Flexible(
+            child: Text(
+              fileName.length > 15
+                  ? '${fileName.substring(0, 12)}...'
+                  : fileName,
+              style: const TextStyle(fontSize: 12, color: Colors.black87),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 4),
+          // Remove button
+          GestureDetector(
+            onTap: onRemove,
+            child: Container(
+              width: 20,
+              height: 20,
+              decoration: const BoxDecoration(
+                color: Colors.grey,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.close, size: 12, color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getFileTypeColor(String extension) {
+    switch (extension) {
+      case 'pdf':
+        return Colors.red.shade400;
+      case 'doc':
+      case 'docx':
+        return Colors.blue.shade400;
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+        return Colors.green.shade400;
+      case 'txt':
+        return Colors.orange.shade400;
+      default:
+        return Colors.grey.shade400;
+    }
+  }
+
+  IconData _getFileTypeIcon(String extension) {
+    switch (extension) {
+      case 'pdf':
+        return Icons.picture_as_pdf;
+      case 'doc':
+      case 'docx':
+        return Icons.description;
+      case 'txt':
+        return Icons.text_snippet;
+      default:
+        return Icons.insert_drive_file;
+    }
   }
 }
