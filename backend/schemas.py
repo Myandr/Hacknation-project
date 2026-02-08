@@ -36,8 +36,6 @@ class MessageResponse(BaseModel):
     reply: str
     requirements: RequirementsOut
     status: str
-    # Bei status "ready_for_search": bis zu 10 Produkte aus der automatischen ASOS-Suche
-    products: list[dict] = []
 
 
 class MessageOut(BaseModel):

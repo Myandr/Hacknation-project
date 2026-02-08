@@ -39,8 +39,8 @@ Nutze dieses Datum, um relative Zeitangaben (z. B. "in zwei Wochen", "nächsten 
 
 | Feld | Pflicht? | Beschreibung |
 |------|----------|-------------|
-| **Anlass / Grund** | JA | Wofür wird eingekauft? (Hochzeit, Geburtstag, Urlaub, Business …) |
-| **Kategorie** | JA | Was wird gebraucht: `clothing`, `food`, `both` oder `other`? Es kann auch etwas spezifiesches sein, wenn man zum beispiel nach einer Kategorie in Kleidung sucht (Ski, Sport, Anzüge..) Leite es aus dem Kontext ab. |
+| **Anlass / Grund** | JA | Wofür wird eingekauft? (Hochzeit, Geburtstag, Ski, Sport, Business …) – speichere in **reason** und/oder **event_type**, das wird für die Produktsuche genutzt! |
+| **Kategorie** | JA | Immer setzen: `clothing`, `food`, `both` oder `other`. Aus dem Kontext ableiten (z. B. „Ski-Outfit“ → clothing). |
 | **Location** | Automatisch | Land/Stadt werden automatisch erkannt. Du musst NICHT danach fragen. |
 | **Must-Haves** | Einmal nachfragen | Frage einmal freundlich, ob es etwas gibt, das auf jeden Fall dabei sein muss. |
 | Budget | optional | Min/Max + Währung (Default: EUR) |
@@ -66,7 +66,8 @@ Nutze dieses Datum, um relative Zeitangaben (z. B. "in zwei Wochen", "nächsten 
 - Wenn der Nutzer schon in der **ersten Nachricht** sehr viele Infos gibt (Anlass + Budget + Wünsche), darfst du auch mit weniger Nachfragen abschließen.
 - Wenn der Nutzer sagt "passt so" / "keine weiteren Wünsche" o. ä., sofort abschließen.
 - Zum Abschließen: `update_shopping_requirements` (letzte Infos) + **`mark_requirements_complete`** aufrufen.
-- **Kategorie** (`category`): Leite aus dem Kontext ab, ob Kleidung, Essen oder beides gebraucht wird. Im Zweifelsfall: `both`.
+- **Kategorie** (`category`): Immer aus der ersten Nachricht setzen (z. B. „Ski-Outfit“, „Hochzeitskleid“ → clothing). Im Zweifelsfall: `both`.
+- **Reason / Event-Type**: Aus der ersten Nachricht den konkreten Anlass speichern (z. B. „Ski-Outfit“ → reason oder event_type „ski“, „Hochzeit“ → „wedding“). Diese Werte steuern die Produktsuche – ohne sie sucht die App nur generisch.
 - **Location** (country/city): Wird automatisch erkannt. Du musst NICHT danach fragen. Nutze die Info, wenn du lokale Shops oder Lieferzeiten erwähnst.
 - Fehlende optionale Felder: leer lassen oder sinnvollen Default (z. B. `budget_currency` = "EUR").
 - **Lieferfrist**: Wandle relative Angaben ("in 2 Wochen") immer in ein konkretes Datum um (YYYY-MM-DD).
@@ -452,9 +453,17 @@ def _process_gemini(
             contents=contents,
             config=config,
         )
-        for part in follow_up.candidates[0].content.parts:
-            if part.text:
-                text_parts.append(part.text)
+        # Gemini kann bei Tool-Follow-up candidates[0].content = None liefern
+        if (
+            follow_up.candidates
+            and follow_up.candidates[0].content
+            and getattr(follow_up.candidates[0].content, "parts", None)
+        ):
+            for part in follow_up.candidates[0].content.parts:
+                if part.text:
+                    text_parts.append(part.text)
+        if not text_parts:
+            text_parts.append("Alles klar, ich habe deine Angaben gespeichert.")
 
     assistant_text = "\n".join(text_parts) if text_parts else ""
     return assistant_text, tool_calls_data
