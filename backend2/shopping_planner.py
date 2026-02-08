@@ -8,7 +8,6 @@ import re
 from serpapi import GoogleSearch
 
 from config import GOOGLE_API_KEY, GEMINI_MODEL, SERPAPI_KEY
-from essen_data import search_essen
 
 
 def _build_plan_prompt(requirements: dict) -> str:
@@ -134,17 +133,9 @@ def run_shopping_plan(requirements: dict) -> dict | None:
 
 
     for component in plan["components"]:
-        comp_category = (component.get("category") or "").strip().lower()
-        if comp_category == "food":
-            # Essen-Kategorie: nur Quellcode-Daten (essen_data), keine externe API
-            component["shopping_results"] = search_essen(component, limit=3)
-        else:
-            # Clothing, accessories, other: wie bisher Google Shopping (SerpAPI)
-            notes = component.get("notes") or []
-            notes_str = ", ".join(notes) if isinstance(notes, list) else str(notes)
-            query = f"{component.get('name', '')}, {notes_str}, {component.get('budget_min', 0)}€ bis {component.get('budget_max', 0)}€"
-            results = search_google_shopping(query=query, location="Germany")
-            component["shopping_results"] = results[:3]
+        results = search_google_shopping(query = f"{component['name']}, {component['notes']}, {component['budget_min']}€ bis {component['budget_max']}€"
+, location="Germany")
+        component["shopping_results"] = results[:3]
 
     return plan
 
