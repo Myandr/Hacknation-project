@@ -23,6 +23,31 @@ class MyTextField extends StatefulWidget {
 class _MyTextFieldState extends State<MyTextField> {
   bool _isChat = true; // true = Manuell, false = KI
 
+  // Filter state
+  RangeValues _priceRange = const RangeValues(0, 500);
+  String _selectedColor = 'Alle';
+  String _selectedDelivery = 'Alle';
+
+  static const List<String> _colorOptions = [
+    'Alle',
+    'Schwarz',
+    'Weiß',
+    'Rot',
+    'Blau',
+    'Grün',
+    'Gelb',
+    'Pink',
+    'Grau',
+  ];
+
+  static const List<String> _deliveryOptions = [
+    'Alle',
+    '1-2 Tage',
+    '3-5 Tage',
+    '1-2 Wochen',
+    '2+ Wochen',
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -144,6 +169,23 @@ class _MyTextFieldState extends State<MyTextField> {
                     ),
                   ),
                   const Spacer(),
+                  // Filter button
+                  GestureDetector(
+                    onTap: _showFilterPopup,
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.tune_rounded,
+                        color: Colors.grey.shade700,
+                        size: 18,
+                      ),
+                    ),
+                  ),
                   const SizedBox(width: 8),
                   // Send button
                   GestureDetector(
@@ -170,6 +212,232 @@ class _MyTextFieldState extends State<MyTextField> {
           ),
         ),
       ],
+    );
+  }
+
+  void _showFilterPopup() {
+    // Use temp copies so cancel doesn't persist changes
+    RangeValues tempPrice = _priceRange;
+    String tempColor = _selectedColor;
+    String tempDelivery = _selectedDelivery;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 80,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header
+                      Row(
+                        children: [
+                          const Icon(Icons.tune_rounded, size: 22),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Filter',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const Spacer(),
+                          GestureDetector(
+                            onTap: () => Navigator.pop(context),
+                            child: const Icon(Icons.close, size: 22),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Price range
+                      const Text(
+                        'Preisspanne',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '${tempPrice.start.round()} €',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          Text(
+                            '${tempPrice.end.round()} €',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      RangeSlider(
+                        values: tempPrice,
+                        min: 0,
+                        max: 2000,
+                        divisions: 40,
+                        activeColor: Colors.black,
+                        inactiveColor: Colors.grey.shade300,
+                        labels: RangeLabels(
+                          '${tempPrice.start.round()} €',
+                          '${tempPrice.end.round()} €',
+                        ),
+                        onChanged: (values) {
+                          setDialogState(() => tempPrice = values);
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Color
+                      const Text(
+                        'Farbe',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _colorOptions.map((color) {
+                          final selected = tempColor == color;
+                          return GestureDetector(
+                            onTap: () {
+                              setDialogState(() => tempColor = color);
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: selected
+                                    ? Colors.black
+                                    : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                color,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: selected
+                                      ? Colors.white
+                                      : Colors.black87,
+                                  fontWeight: selected
+                                      ? FontWeight.w600
+                                      : FontWeight.w400,
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Delivery time
+                      const Text(
+                        'Lieferzeit',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _deliveryOptions.map((delivery) {
+                          final selected = tempDelivery == delivery;
+                          return GestureDetector(
+                            onTap: () {
+                              setDialogState(() => tempDelivery = delivery);
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: selected
+                                    ? Colors.black
+                                    : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                delivery,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: selected
+                                      ? Colors.white
+                                      : Colors.black87,
+                                  fontWeight: selected
+                                      ? FontWeight.w600
+                                      : FontWeight.w400,
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Apply button
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              _priceRange = tempPrice;
+                              _selectedColor = tempColor;
+                              _selectedDelivery = tempDelivery;
+                            });
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.black,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          child: const Text(
+                            'Anwenden',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

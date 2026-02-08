@@ -14,7 +14,6 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   String? sessionId;
   bool isLoading = true;
   String? error;
@@ -101,15 +100,13 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      key: _scaffoldKey,
       backgroundColor: Colors.white,
-      drawer: const ProfilePage(),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(CupertinoIcons.person, color: Colors.black),
-          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+          onPressed: () => showProfileSheet(context),
         ),
         title: const Text('Ski Outfit', style: TextStyle(color: Colors.black)),
         centerTitle: true,
