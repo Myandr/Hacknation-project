@@ -41,6 +41,12 @@ class ShoppingSession(Base):
         order_by="CartItem.created_at",
         cascade="all, delete-orphan",
     )
+    checkout_details = relationship(
+        "CheckoutDetails",
+        back_populates="session",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
 
 
 class ShoppingRequirement(Base):
@@ -117,6 +123,49 @@ class ConversationMessage(Base):
     created_at = Column(DateTime, default=_utcnow)
 
     session = relationship("ShoppingSession", back_populates="messages")
+
+
+class CheckoutDetails(Base):
+    """Kreditkarten-Infos und Lieferadresse/Standort pro Session."""
+    __tablename__ = "checkout_details"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    session_id = Column(String, ForeignKey("shopping_sessions.id"), unique=True)
+
+    # Kreditkarten-Infos (keine vollständige Kartennummer speichern – nur letzte 4 Ziffern)
+    card_holder_name = Column(String, nullable=True)
+    card_brand = Column(String, nullable=True)  # z.B. Visa, Mastercard
+    card_last_four = Column(String, nullable=True)  # letzte 4 Ziffern
+    expiry_month = Column(Integer, nullable=True)  # 1–12
+    expiry_year = Column(Integer, nullable=True)   # z.B. 2028
+
+    # Standort / Adresse: Land, Straße, Hausnummer, Postleitzahl, Ort
+    country = Column(String, nullable=True)   # Land
+    street = Column(String, nullable=True)   # Straße
+    house_number = Column(String, nullable=True)  # Hausnummer
+    postal_code = Column(String, nullable=True)   # Postleitzahl
+    city = Column(String, nullable=True)      # Ort
+
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+    session = relationship("ShoppingSession", back_populates="checkout_details")
+
+    def to_dict(self) -> dict:
+        return {
+            "card_holder_name": self.card_holder_name,
+            "card_brand": self.card_brand,
+            "card_last_four": self.card_last_four,
+            "expiry_month": self.expiry_month,
+            "expiry_year": self.expiry_year,
+            "country": self.country,
+            "street": self.street,
+            "house_number": self.house_number,
+            "postal_code": self.postal_code,
+            "city": self.city,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }
 
 
 class CartItem(Base):
