@@ -78,6 +78,24 @@ class MyResult extends StatelessWidget {
                 const SizedBox(height: 4),
                 Row(
                   children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.pink.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        product.retailerId,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.pink.shade700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
                     if (product.deliveryEstimateDays != null)
                       Text(
                         '📦 ${product.deliveryEstimateDays} Tage',

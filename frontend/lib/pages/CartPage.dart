@@ -419,6 +419,24 @@ class _CartItemTile extends StatelessWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.pink.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          item.retailerId,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.pink.shade700,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       Text(
                         'Menge: ${item.quantity}',
                         style: TextStyle(
