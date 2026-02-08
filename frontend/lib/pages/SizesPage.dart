@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:hacknation_app/services/filter_service.dart';
 
 /// Opens the sizes sheet as a modal bottom sheet (same style as ProfilePage).
 void showSizesSheet(BuildContext context) {
@@ -23,6 +24,9 @@ class _SizesPageState extends State<SizesPage> {
   String? _tshirtSize;
   String? _pantsSize;
   String? _shoeSize;
+  String _gender = 'male'; // 'male' or 'female'
+  bool _isLoading = true;
+  bool _isSaving = false;
 
   // Available options
   static const _tshirtSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
@@ -40,6 +44,71 @@ class _SizesPageState extends State<SizesPage> {
     '45',
     '46',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFilters();
+  }
+
+  Future<void> _loadFilters() async {
+    try {
+      final filters = await getFilters();
+      setState(() {
+        _gender = filters.gender ?? 'male';
+        _tshirtSize = filters.sizeClothing;
+        _pantsSize = filters.sizePants;
+        _shoeSize = filters.sizeShoes;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Fehler beim Laden der Filter: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _saveFilters() async {
+    if (_isSaving) return;
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      final request = FilterRequest(
+        gender: _gender,
+        sizeClothing: _tshirtSize,
+        sizePants: _pantsSize,
+        sizeShoes: _shoeSize,
+      );
+      await saveFilters(request);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Größen gespeichert'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Fehler: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -78,72 +147,174 @@ class _SizesPageState extends State<SizesPage> {
 
           // ── Content ──
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 20),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 20),
 
-                  // T-Shirt
-                  _SizeSection(
-                    icon: Icons.checkroom,
-                    title: 'T-Shirt',
-                    sizes: _tshirtSizes,
-                    selectedSize: _tshirtSize,
-                    onSelected: (size) => setState(() => _tshirtSize = size),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Hose
-                  _SizeSection(
-                    icon: Icons.accessibility_new,
-                    title: 'Hose',
-                    sizes: _pantsSizes,
-                    selectedSize: _pantsSize,
-                    onSelected: (size) => setState(() => _pantsSize = size),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Schuhe
-                  _SizeSection(
-                    icon: CupertinoIcons.sportscourt,
-                    title: 'Schuhe',
-                    sizes: _shoeSizes,
-                    selectedSize: _shoeSize,
-                    onSelected: (size) => setState(() => _shoeSize = size),
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  // Save button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        // TODO: persist sizes
-                        Navigator.pop(context);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
+                        // Geschlecht
+                        const Row(
+                          children: [
+                            Icon(Icons.person, size: 20, color: Colors.black87),
+                            SizedBox(width: 10),
+                            Text(
+                              'Geschlecht',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black,
+                              ),
+                            ),
+                          ],
                         ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: const Text(
-                        'Speichern',
-                        style: TextStyle(fontSize: 16),
-                      ),
+                        const SizedBox(height: 12),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => setState(() => _gender = 'male'),
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: _gender == 'male'
+                                          ? Colors.black
+                                          : const Color(0xFFF0F0F0),
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    child: Text(
+                                      'Männlich',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        color: _gender == 'male'
+                                            ? Colors.white
+                                            : Colors.black87,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () =>
+                                      setState(() => _gender = 'female'),
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: _gender == 'female'
+                                          ? Colors.black
+                                          : const Color(0xFFF0F0F0),
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    child: Text(
+                                      'Weiblich',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        color: _gender == 'female'
+                                            ? Colors.white
+                                            : Colors.black87,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // T-Shirt
+                        _SizeSection(
+                          icon: Icons.checkroom,
+                          title: 'T-Shirt',
+                          sizes: _tshirtSizes,
+                          selectedSize: _tshirtSize,
+                          onSelected: (size) =>
+                              setState(() => _tshirtSize = size),
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // Hose
+                        _SizeSection(
+                          icon: Icons.accessibility_new,
+                          title: 'Hose',
+                          sizes: _pantsSizes,
+                          selectedSize: _pantsSize,
+                          onSelected: (size) =>
+                              setState(() => _pantsSize = size),
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // Schuhe
+                        _SizeSection(
+                          icon: CupertinoIcons.sportscourt,
+                          title: 'Schuhe',
+                          sizes: _shoeSizes,
+                          selectedSize: _shoeSize,
+                          onSelected: (size) =>
+                              setState(() => _shoeSize = size),
+                        ),
+
+                        const SizedBox(height: 32),
+
+                        // Save button
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _isSaving ? null : _saveFilters,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            child: _isSaving
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white,
+                                      ),
+                                    ),
+                                  )
+                                : const Text(
+                                    'Speichern',
+                                    style: TextStyle(fontSize: 16),
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 32),
-                ],
-              ),
-            ),
           ),
         ],
       ),

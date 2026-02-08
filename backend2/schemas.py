@@ -5,6 +5,32 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
+# ---- Filter (Größe, Preis, Farbe, Lieferzeit) ----
+
+class FilterRequest(BaseModel):
+    """Filter-Daten vom Frontend: Größe, Preis, Farbe, Lieferzeit."""
+    gender: str | None = None         # male oder female
+    size_clothing: str | None = None   # z.B. XS, S, M, L
+    size_pants: str | None = None     # z.B. 28, 30, 32
+    size_shoes: str | None = None     # z.B. 40, 41, 42
+    price_min: float | None = None
+    price_max: float | None = None
+    color: str | None = None          # eine Farbe oder kommasepariert
+    delivery_time_days: int | None = None  # max. Lieferzeit in Tagen
+
+
+class FilterOut(BaseModel):
+    """Gespeicherte Filter (Response)."""
+    gender: str | None = None
+    size_clothing: str | None = None
+    size_pants: str | None = None
+    size_shoes: str | None = None
+    price_min: float | None = None
+    price_max: float | None = None
+    color: str | None = None
+    delivery_time_days: int | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 # ---- Brief / Requirements ----
 
 class ShoppingSpecOut(BaseModel):

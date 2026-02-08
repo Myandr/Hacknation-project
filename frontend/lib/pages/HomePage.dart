@@ -263,6 +263,7 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        scrolledUnderElevation: 0,
         leading: IconButton(
           icon: const Icon(CupertinoIcons.person, color: Colors.black),
           onPressed: () => showProfileSheet(context),
@@ -270,6 +271,7 @@ class _HomePageState extends State<HomePage> {
         title: const Text('Ski Outfit', style: TextStyle(color: Colors.black)),
         centerTitle: true,
         actions: [
+          // Warenkorb
           Stack(
             children: [
               IconButton(
@@ -347,33 +349,32 @@ class _HomePageState extends State<HomePage> {
                         }),
                         // Lade-Indikator (Chat)
                         if (_isSending)
-                          const Align(
+                          Align(
                             alignment: Alignment.centerLeft,
                             child: Padding(
-                              padding: EdgeInsets.all(12),
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
+                              padding: const EdgeInsets.all(12),
+                              child: Text(
+                                'thinking...',
+                                style: TextStyle(
+                                  color: Colors.grey.shade400,
+                                  fontSize: 14,
+                                  fontStyle: FontStyle.italic,
                                 ),
                               ),
                             ),
                           ),
                         // Suche läuft
                         if (_isSearching)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 20),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 20),
                             child: Center(
-                              child: Column(
-                                children: [
-                                  CircularProgressIndicator(),
-                                  SizedBox(height: 12),
-                                  Text(
-                                    'Suche läuft...',
-                                    style: TextStyle(color: Colors.grey),
-                                  ),
-                                ],
+                              child: Text(
+                                'thinking...',
+                                style: TextStyle(
+                                  color: Colors.grey.shade400,
+                                  fontSize: 16,
+                                  fontStyle: FontStyle.italic,
+                                ),
                               ),
                             ),
                           ),
@@ -408,13 +409,12 @@ class _HomePageState extends State<HomePage> {
                       ],
                     ),
             ),
-            if (_sessionStatus != 'ready_for_search' && _searchResults.isEmpty)
-              MyTextField(
-                controller: _messageController,
-                onSend: _sendMessage,
-                onFilesChanged: _onFilesChanged,
-                enabled: _showBottomTextField,
-              ),
+            MyTextField(
+              controller: _messageController,
+              onSend: _sendMessage,
+              onFilesChanged: _onFilesChanged,
+              enabled: _showBottomTextField,
+            ),
           ],
         ),
       ),

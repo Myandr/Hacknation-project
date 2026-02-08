@@ -74,7 +74,6 @@ class ShoppingRequirement(Base):
 
     session = relationship("ShoppingSession", back_populates="requirements")
 
-    def to_dict(self) -> dict:
         return {
             "budget_min": self.budget_min,
             "budget_max": self.budget_max,
@@ -202,4 +201,55 @@ class CartItem(Base):
             "variant_info": json.loads(self.variant_info) if self.variant_info else {},
             "image_url": self.image_url,
             "product_url": self.product_url,
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "retailer_id": self.retailer_id,
+            "product_id": self.product_id,
+            "title": self.title,
+            "price": self.price,
+            "currency": self.currency,
+            "delivery_estimate_days": self.delivery_estimate_days,
+            "quantity": self.quantity,
+            "variant_info": json.loads(self.variant_info) if self.variant_info else {},
+            "image_url": self.image_url,
+            "product_url": self.product_url,
+        }
+
+
+class SearchFilter(Base):
+    """Globale Filter (Größe, Preis, Farbe, Lieferzeit) – ein Datensatz für die App."""
+    __tablename__ = "search_filters"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # Geschlecht
+    gender = Column(String, nullable=True)  # male oder female
+
+    # Größe: Kleidung (z.B. XS, S, M, L), Hose (z.B. 28, 30), Schuhe (z.B. 40, 42)
+    size_clothing = Column(String, nullable=True)
+    size_pants = Column(String, nullable=True)
+    size_shoes = Column(String, nullable=True)
+
+    price_min = Column(Float, nullable=True)
+    price_max = Column(Float, nullable=True)
+    color = Column(String, nullable=True)  # eine Farbe oder kommasepariert
+
+    delivery_time_days = Column(Integer, nullable=True)  # max. Lieferzeit in Tagen
+
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+    def to_dict(self) -> dict:
+        return {
+            "gender": self.gender,
+            "size_clothing": self.size_clothing,
+            "size_pants": self.size_pants,
+            "size_shoes": self.size_shoes,
+            "price_min": self.price_min,
+            "price_max": self.price_max,
+            "color": self.color,
+            "delivery_time_days": self.delivery_time_days,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
         }

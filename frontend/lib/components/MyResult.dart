@@ -137,7 +137,7 @@ class MyResult extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
-                    isInCart ? Icons.check : Icons.add_shopping_cart,
+                    isInCart ? Icons.check : Icons.add,
                     color: isInCart ? Colors.grey.shade600 : Colors.white,
                     size: 18,
                   ),
