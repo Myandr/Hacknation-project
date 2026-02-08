@@ -44,7 +44,7 @@ def _build_plan_prompt(requirements: dict) -> str:
 - "category": z.B. "clothing", "food", "accessories", "other".
 - "priority": "must_have" wenn aus must_haves/Anlass zwingend, sonst "nice_to_have".
 - "quantity": Stückzahl/Personenanzahl wo sinnvoll.
-- "notes": optionales Array mit kurzen Stichworten (z.B. ["wasserfest", "Größe M"]), keine Sätze.
+- "notes": optionales Array mit kurzen Stichworten (z.B. ["Schwarz", "Größe M", "wasserfest"]). Bei Kleidung immer Farbe und Größe angeben, falls aus dem Brief ableitbar.
 
 Antworte ausschließlich mit dem JSON-Objekt."""
 
@@ -69,6 +69,28 @@ def _extract_json_from_response(text: str) -> dict | None:
         except json.JSONDecodeError:
             pass
     return None
+
+
+def _build_google_search_query(component: dict, currency: str = "EUR") -> str:
+    """Baut eine Suchanfrage für Google Shopping: Name, Stichworte (Farbe, Größe, …), Preisbereich.
+    Beispiel: 'Skijacke, Schwarz, Größe M, 200€ bis 400€'."""
+    parts = [component.get("name", "").strip()]
+    notes = component.get("notes") or []
+    if notes:
+        parts.append(", ".join(str(n).strip() for n in notes if str(n).strip()))
+    b_min = component.get("budget_min")
+    b_max = component.get("budget_max")
+    if b_min is not None or b_max is not None:
+        curr = (currency or "EUR").strip().upper()
+        sym = "€" if curr == "EUR" else curr + " "
+        if b_min is not None and b_max is not None:
+            parts.append(f"{b_min:.0f}{sym} bis {b_max:.0f}{sym}".replace("  ", " "))
+        elif b_min is not None:
+            parts.append(f"ab {b_min:.0f}{sym}")
+        else:
+            parts.append(f"bis {b_max:.0f}{sym}")
+    return ", ".join(p for p in parts if p)
+
 
 def search_google_shopping(query: str, location: str = "Germany") -> list[dict]:
     params = {
@@ -131,8 +153,10 @@ def run_shopping_plan(requirements: dict) -> dict | None:
         plan["currency"] = "EUR"
 
 
+    currency = plan.get("currency", "EUR")
     for component in plan["components"]:
-        results = search_google_shopping(component["name"], location="Germany")
+        query = _build_google_search_query(component, currency)
+        results = search_google_shopping(query, location="Germany")
         component["shopping_results"] = results[:3]
 
     return plan
