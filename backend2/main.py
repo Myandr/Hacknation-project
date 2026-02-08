@@ -11,7 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from database import engine, get_db, Base
-from models import ShoppingSession, ShoppingRequirement, ConversationMessage, CartItem, CheckoutDetails
+from models import ShoppingSession, ShoppingRequirement, ConversationMessage, CartItem, CheckoutDetails, SearchFilter
 from schemas import (
     MessageRequest,
     MessageResponse,
@@ -29,6 +29,8 @@ from schemas import (
     UpdateQuantityRequest,
     CheckoutDetailsRequest,
     CheckoutDetailsOut,
+    FilterOut,
+    FilterRequest,
 )
 from agent import process_message
 from shopping_planner import run_shopping_plan

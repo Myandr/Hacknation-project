@@ -199,20 +199,7 @@ class CartItem(Base):
             "currency": self.currency,
             "delivery_estimate_days": self.delivery_estimate_days,
             "quantity": self.quantity,
-            "variant_info": json.loads(self.variant_info) if self.variant_info else {},
-            "image_url": self.image_url,
-            "product_url": self.product_url,
-    def to_dict(self) -> dict:
-        return {
-            "id": self.id,
-            "retailer_id": self.retailer_id,
-            "product_id": self.product_id,
-            "title": self.title,
-            "price": self.price,
-            "currency": self.currency,
-            "delivery_estimate_days": self.delivery_estimate_days,
-            "quantity": self.quantity,
-            "variant_info": json.loads(self.variant_info) if self.variant_info else {},
+            "variant_info": json.loads(self.variant_info) if self.variant_info else dict(),
             "image_url": self.image_url,
             "product_url": self.product_url,
         }

@@ -8,6 +8,7 @@ import re
 from serpapi import GoogleSearch
 
 from config import GOOGLE_API_KEY, GEMINI_MODEL, SERPAPI_KEY
+from essen_data import search_essen
 
 
 def _build_plan_prompt(requirements: dict) -> str:
@@ -69,6 +70,15 @@ def _extract_json_from_response(text: str) -> dict | None:
         except json.JSONDecodeError:
             pass
     return None
+
+def _is_food_component(component: dict, session_category: str | None) -> bool:
+    """Entscheidung: Brauchen wir die Essen-API oder Google Shopping?"""
+    comp_cat = (component.get("category") or "").strip().lower()
+    session_cat = (session_category or "").strip().lower()
+    if session_cat == "food":
+        return True
+    return comp_cat == "food"
+
 
 def search_google_shopping(query: str, location: str = "Germany") -> list[dict]:
     params = {
@@ -132,10 +142,24 @@ def run_shopping_plan(requirements: dict) -> dict | None:
 
 
 
+    session_category = requirements.get("category")
     for component in plan["components"]:
-        results = search_google_shopping(query = f"{component['name']}, {component['notes']}, {component['budget_min']}€ bis {component['budget_max']}€"
-, location="Germany")
-        component["shopping_results"] = results[:3]
+        name = component.get("name", "")
+        notes = component.get("notes") or []
+        notes_str = " ".join(notes) if isinstance(notes, list) else str(notes)
+        query_full = f"{name}, {notes_str}, {component.get('budget_min', 0)}€ bis {component.get('budget_max', 0)}€"
+        if _is_food_component(component, session_category):
+            # Essen-Anfrage: statische Essen-Daten filtern (nur im Quellcode)
+            component["shopping_results"] = search_essen(
+                query=f"{name} {notes_str}".strip() or query_full,
+                budget_min=component.get("budget_min"),
+                budget_max=component.get("budget_max"),
+                limit=3,
+            )
+        else:
+            # Kleidung, Sonstiges: Google Shopping (SerpAPI) wie bisher
+            results = search_google_shopping(query=query_full, location="Germany")
+            component["shopping_results"] = results[:3]
 
     return plan
 
