@@ -31,8 +31,6 @@ class FilterOut(BaseModel):
     delivery_time_days: int | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
-
-
 # ---- Brief / Requirements ----
 
 class ShoppingSpecOut(BaseModel):
@@ -150,6 +148,40 @@ class CartSummaryOut(BaseModel):
     currency: str = "EUR"
     by_retailer: dict[str, float] = {}
     delivery_summary: str = ""
+
+
+# ---- Checkout (Kreditkarte + Standort) ----
+
+class CheckoutDetailsRequest(BaseModel):
+    """Kreditkarten-Infos und Standort speichern (Land, Straße, Hausnummer, Postleitzahl, Ort)."""
+    # Kreditkarte (card_last_four = nur letzte 4 Ziffern, keine vollständige Nummer)
+    card_holder_name: str | None = None
+    card_brand: str | None = None  # z.B. Visa, Mastercard
+    card_last_four: str | None = None
+    expiry_month: int | None = None  # 1–12
+    expiry_year: int | None = None
+    # Standort
+    country: str | None = None   # Land
+    street: str | None = None   # Straße
+    house_number: str | None = None  # Hausnummer
+    postal_code: str | None = None   # Postleitzahl
+    city: str | None = None     # Ort
+
+
+class CheckoutDetailsOut(BaseModel):
+    """Gespeicherte Checkout-Daten (Output)."""
+    card_holder_name: str | None = None
+    card_brand: str | None = None
+    card_last_four: str | None = None
+    expiry_month: int | None = None
+    expiry_year: int | None = None
+    country: str | None = None
+    street: str | None = None
+    house_number: str | None = None
+    postal_code: str | None = None
+    city: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 # ---- Checkout (Simulation) ----

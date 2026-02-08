@@ -7,10 +7,11 @@ from pathlib import Path
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from database import engine, get_db, Base
-from models import ShoppingSession, ShoppingRequirement, ConversationMessage, CartItem, SearchFilter
+from models import ShoppingSession, ShoppingRequirement, ConversationMessage, CartItem, CheckoutDetails
 from schemas import (
     MessageRequest,
     MessageResponse,
@@ -26,8 +27,8 @@ from schemas import (
     PlanComponentSearchOut,
     AddToCartRequest,
     UpdateQuantityRequest,
-    FilterRequest,
-    FilterOut,
+    CheckoutDetailsRequest,
+    CheckoutDetailsOut,
 )
 from agent import process_message
 from shopping_planner import run_shopping_plan
@@ -39,6 +40,30 @@ from retailers.base import RetailerProduct
 
 # Tabellen anlegen
 Base.metadata.create_all(bind=engine)
+
+
+def _migrate_checkout_details_columns():
+    """Neue Spalten in checkout_details anlegen (Kreditkarte + Hausnummer), falls noch nicht vorhanden."""
+    new_columns = [
+        ("card_holder_name", "VARCHAR"),
+        ("card_brand", "VARCHAR"),
+        ("card_last_four", "VARCHAR"),
+        ("expiry_month", "INTEGER"),
+        ("expiry_year", "INTEGER"),
+        ("house_number", "VARCHAR"),
+    ]
+    with engine.connect() as conn:
+        for col_name, col_type in new_columns:
+            try:
+                conn.execute(text(f"ALTER TABLE checkout_details ADD COLUMN {col_name} {col_type}"))
+                conn.commit()
+            except Exception:
+                conn.rollback()
+                # Spalte existiert bereits
+                pass
+
+
+_migrate_checkout_details_columns()
 
 app = FastAPI(
     title="Agentic Commerce API",
@@ -249,8 +274,6 @@ def save_filters(body: FilterRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(f)
     return FilterOut(**f.to_dict())
-
-#commit
 @app.get("/sessions/{session_id}/cart", response_model=CartSummaryOut)
 def get_cart(session_id: str, db: Session = Depends(get_db)):
     """Kombinierten Warenkorb abrufen."""
@@ -305,6 +328,46 @@ def cart_update_quantity(
     if not ok:
         raise HTTPException(status_code=404, detail="Cart-Item nicht gefunden")
     return {"message": "Aktualisiert."}
+
+
+def _update_checkout_details(details: CheckoutDetails, body: CheckoutDetailsRequest) -> None:
+    """Gesendete Felder in CheckoutDetails übernehmen."""
+    card_fields = ["card_holder_name", "card_brand", "card_last_four", "expiry_month", "expiry_year"]
+    address_fields = ["country", "street", "house_number", "postal_code", "city"]
+    for field in card_fields + address_fields:
+        val = getattr(body, field, None)
+        if val is not None:
+            setattr(details, field, val)
+
+
+@app.post("/sessions/{session_id}/checkout-details", response_model=CheckoutDetailsOut)
+def save_checkout_details(
+    session_id: str,
+    body: CheckoutDetailsRequest,
+    db: Session = Depends(get_db),
+):
+    """Kreditkarten-Infos und Standort (Land, Straße, Hausnummer, Postleitzahl, Ort) in der DB speichern."""
+    session = _get_session(session_id, db)
+    details = db.query(CheckoutDetails).filter(CheckoutDetails.session_id == session_id).first()
+    if details:
+        _update_checkout_details(details, body)
+    else:
+        details = CheckoutDetails(session_id=session_id)
+        _update_checkout_details(details, body)
+        db.add(details)
+    db.commit()
+    db.refresh(details)
+    return CheckoutDetailsOut(**details.to_dict())
+
+
+@app.get("/sessions/{session_id}/checkout-details", response_model=CheckoutDetailsOut | None)
+def get_checkout_details(session_id: str, db: Session = Depends(get_db)):
+    """Gespeicherte Zahlungsmethode und Standort der Session abrufen."""
+    _get_session(session_id, db)
+    details = db.query(CheckoutDetails).filter(CheckoutDetails.session_id == session_id).first()
+    if not details:
+        return None
+    return CheckoutDetailsOut(**details.to_dict())
 
 
 @app.post("/sessions/{session_id}/checkout-simulation", response_model=CheckoutSimulationOut)

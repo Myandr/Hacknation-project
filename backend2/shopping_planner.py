@@ -131,8 +131,10 @@ def run_shopping_plan(requirements: dict) -> dict | None:
         plan["currency"] = "EUR"
 
 
+
     for component in plan["components"]:
-        results = search_google_shopping(component["name"], location="Germany")
+        results = search_google_shopping(query = f"{component['name']}, {component['notes']}, {component['budget_min']}€ bis {component['budget_max']}€"
+, location="Germany")
         component["shopping_results"] = results[:3]
 
     return plan
