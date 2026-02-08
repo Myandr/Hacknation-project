@@ -41,22 +41,11 @@ def search_all_retailers(
     limit_per_retailer: int = 10,
     spec: Any = None,
 ) -> list[RetailerProduct]:
-    """Ruft jeden Händler auf und sammelt Produkte. spec = KI-Brief für country/currency (ASOS)."""
-    from schemas import ShoppingSpecOut
-
+    """Ruft jeden Händler auf und sammelt Produkte (nur Demo-Händler)."""
     results: list[RetailerProduct] = []
-    for retailer_id, search_fn, _ in retailers:
+    for _retailer_id, search_fn, _ in retailers:
         try:
-            if retailer_id == "asos" and spec is not None and isinstance(spec, ShoppingSpecOut):
-                products = search_fn(
-                    query=query,
-                    category=category,
-                    limit=limit_per_retailer,
-                    country=getattr(spec, "country", None),
-                    currency=getattr(spec, "budget_currency", None),
-                )
-            else:
-                products = search_fn(query=query, category=category, limit=limit_per_retailer)
+            products = search_fn(query=query, category=category, limit=limit_per_retailer)
             results.extend(products)
         except Exception:
             continue

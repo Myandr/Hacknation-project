@@ -8,21 +8,12 @@ def run_checkout_simulation(session: ShoppingSession) -> CheckoutSimulationOut:
     Erzeugt einen simulierten Checkout-Ablauf:
     - Zahlung und Adresse einmal eingegeben (konzeptionell).
     - Pro Händler ein oder mehrere Schritte (simuliert).
-    - Optional: ASOS Return Charges (asos10 API) in die Beschreibung aufnehmen.
     """
     retailer_ids = list({item.retailer_id for item in session.cart_items})
     steps: list[CheckoutStepOut] = []
     step_num = 1
     for rid in retailer_ids:
         description = f"Checkout bei {rid} – Adresse & Zahlung übernommen (Simulation)."
-        if rid == "asos":
-            try:
-                from retailers.asos_api import get_return_charges
-                charges = get_return_charges("DE")
-                if charges is not None and (isinstance(charges, dict) or (isinstance(charges, list) and charges)):
-                    description += " Rückgabeinfos (asos10 API) verfügbar."
-            except Exception:
-                pass
         steps.append(CheckoutStepOut(
             retailer_id=rid,
             step_number=step_num,

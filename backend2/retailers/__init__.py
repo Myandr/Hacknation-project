@@ -1,14 +1,13 @@
-"""Multi-Retailer: ASOS (RapidAPI) + Mock-Händler."""
+"""Multi-Retailer: nur Demo-Mock-Händler (StyleHub, UrbanOutfit, SportDirect)."""
 from typing import Any
 
 from .base import RetailerProduct, search_all_retailers
-from .asos_api import search_asos
-from .mock_retailers import search_stylehub, search_urbanoutfit
+from .mock_retailers import search_stylehub, search_urbanoutfit, search_sportdirect
 
 RETAILERS = [
-    ("asos", search_asos, "ASOS"),
     ("stylehub", search_stylehub, "StyleHub"),
     ("urbanoutfit", search_urbanoutfit, "UrbanOutfit"),
+    ("sportdirect", search_sportdirect, "SportDirect"),
 ]
 
 
@@ -18,7 +17,7 @@ def search_products(
     limit_per_retailer: int = 10,
     spec: Any = None,
 ) -> list[RetailerProduct]:
-    """Durchsucht alle Händler und gibt vereinheitlichte Produkte zurück. spec = KI-Brief (country/currency für ASOS)."""
+    """Durchsucht alle Demo-Händler und gibt vereinheitlichte Produkte zurück."""
     return search_all_retailers(
         retailers=RETAILERS,
         query=query,

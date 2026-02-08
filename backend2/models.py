@@ -125,7 +125,7 @@ class CartItem(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     session_id = Column(String, ForeignKey("shopping_sessions.id"))
-    retailer_id = Column(String, nullable=False)  # asos | stylehub | urbanoutfit
+    retailer_id = Column(String, nullable=False)  # stylehub | urbanoutfit | sportdirect
     product_id = Column(String, nullable=False)
     title = Column(String, nullable=False)
     price = Column(Float, nullable=False)

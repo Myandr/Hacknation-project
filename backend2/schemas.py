@@ -162,5 +162,33 @@ class UpdateQuantityRequest(BaseModel):
     quantity: int
 
 
+# ---- Shopping-Plan (KI-Denkprozess) ----
+
+class ShoppingPlanComponent(BaseModel):
+    """Eine Position der Einkaufsliste mit Budgetaufteilung."""
+    id: str
+    name: str
+    category: str
+    budget_min: float
+    budget_max: float
+    priority: str = "must_have"  # must_have | nice_to_have
+    quantity: int = 1
+    notes: list[str] = []
+
+
+class ShoppingPlanOut(BaseModel):
+    """Ergebnis des KI-Denkprozesses: Einkaufsliste mit Budgetaufteilung (nur JSON-Daten)."""
+    currency: str = "EUR"
+    total_budget_min: float = 0.0
+    total_budget_max: float = 0.0
+    components: list[ShoppingPlanComponent] = []
+
+
+class PlanComponentSearchOut(BaseModel):
+    """Pro Plan-Komponente: Komponente + erste 3 Google-Shopping-Treffer."""
+    component: ShoppingPlanComponent
+    shopping_results: list[dict] = []  # Rohdaten von SerpAPI (title, link, price, ...)
+
+
 # Für SessionResponse
 SessionResponse.model_rebuild()

@@ -21,10 +21,15 @@ from schemas import (
     CartSummaryOut,
     SearchResultOut,
     CheckoutSimulationOut,
+    ShoppingPlanOut,
+    ShoppingPlanComponent,
+    PlanComponentSearchOut,
     AddToCartRequest,
     UpdateQuantityRequest,
 )
 from agent import process_message
+from shopping_planner import run_shopping_plan
+from google_shopping_api import plan_and_search
 from search_service import run_search
 from cart_service import cart_to_summary, add_to_cart, remove_from_cart, update_cart_item_quantity
 from checkout_simulation import run_checkout_simulation
@@ -153,6 +158,45 @@ def chat(session_id: str, body: MessageRequest, db: Session = Depends(get_db)):
     )
 
 
+@app.post("/sessions/{session_id}/shopping-plan", response_model=ShoppingPlanOut)
+def create_shopping_plan(session_id: str, db: Session = Depends(get_db)):
+    """KI-Denkprozess: Aus den in der Session gesammelten Daten eine Einkaufsliste mit Budgetaufteilung erzeugen (nur JSON)."""
+    session = _get_session(session_id, db)
+    req = session.requirements
+    if not req:
+        raise HTTPException(status_code=400, detail="Session hat keine Anforderungen.")
+    requirements = req.to_dict()
+    plan = run_shopping_plan(requirements)
+    if not plan:
+        raise HTTPException(
+            status_code=503,
+            detail="Plan konnte nicht erstellt werden (KI oder GOOGLE_API_KEY fehlt).",
+        )
+    return ShoppingPlanOut(**plan)
+
+
+@app.post("/sessions/{session_id}/shopping-plan/google-shopping", response_model=list[PlanComponentSearchOut])
+def shopping_plan_google_search(session_id: str, db: Session = Depends(get_db)):
+    """KI-Plan aus Session-Anforderungen, pro Komponente Google-Shopping-Suche (q=Name), je 3 Treffer."""
+    session = _get_session(session_id, db)
+    req = session.requirements
+    if not req:
+        raise HTTPException(status_code=400, detail="Session hat keine Anforderungen.")
+    results = plan_and_search(req.to_dict(), location="Germany")
+    if results is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Plan konnte nicht erstellt werden (KI oder GOOGLE_API_KEY fehlt).",
+        )
+    return [
+        PlanComponentSearchOut(
+            component=ShoppingPlanComponent(**item["component"]),
+            shopping_results=item["shopping_results"],
+        )
+        for item in results
+    ]
+
+
 @app.post("/sessions/{session_id}/search", response_model=SearchResultOut)
 def search(session_id: str, db: Session = Depends(get_db)):
     """Multi-Händler-Suche + Ranking basierend auf dem gespeicherten Brief."""
@@ -243,80 +287,24 @@ def api_test_page():
     return FileResponse(path, media_type="text/html")
 
 
-def _product_summary(p: dict) -> dict:
-    """Kurze Produkt-Info aus API-Dict (verschiedene Key-Namen)."""
-    price = p.get("price")
-    if price is None and isinstance(p.get("priceInfo"), dict):
-        price = p.get("priceInfo", {}).get("current") or p.get("priceInfo", {}).get("value")
-    return {
-        "id": p.get("id") or p.get("productId") or p.get("articleId"),
-        "name": (p.get("name") or p.get("title") or p.get("productTitle") or p.get("displayName") or "").strip() or None,
-        "price": price,
-    }
+# Demo-Kategorien (keine externe API)
+DEMO_CATEGORIES = [
+    {"name": "Herren", "category_id": 1},
+    {"name": "Damen", "category_id": 2},
+    {"name": "Ski & Winter", "category_id": 3},
+    {"name": "Party & Events", "category_id": 4},
+    {"name": "Sport & Outdoor", "category_id": 5},
+    {"name": "Streetwear", "category_id": 6},
+]
 
 
-@app.get("/test-api", include_in_schema=False)
-def test_api_requests(raw: bool = False, reload: bool = False):
-    """
-    Testet die ASOS-API: Referenzdaten (Categories, Countries, ReturnCharges) und getProductList.
-    ?raw=1: zeigt die Response-Struktur von getProductList (Keys).
-    ?reload=1: leert Caches und lädt Kategorien/Referenzdaten neu (mehr Kategorien bei verschachtelter API).
-    """
-    from api_service import clear_reference_data_cache, get_reference_data
+@app.get("/categories", response_model=list[dict])
+def list_categories():
+    """Demo-Kategorien (name, category_id) – keine externe API."""
+    return DEMO_CATEGORIES
 
-    from retailers.asos_api import clear_reference_caches, get_product_list_raw
 
-    if reload:
-        clear_reference_caches()
-        clear_reference_data_cache()
-
-    result: dict = {"ok": True, "ref": {}, "product_list": {"count": 0, "sample": []}}
-    try:
-        ref = get_reference_data()
-        cats = ref.get("categories") or []
-        result["ref"] = {
-            "categories_count": len(cats),
-            "countries_count": len(ref.get("countries") or []),
-            "return_charges": "present" if ref.get("return_charges") is not None else "missing",
-        }
-        if cats and len(cats) <= 5:
-            result["ref"]["category_sample_keys"] = [list(c.keys()) for c in cats[:2]]
-    except Exception as e:
-        result["ok"] = False
-        result["ref_error"] = str(e)
-        return result
-
-    try:
-        products, raw_response = get_product_list_raw(
-            category_id=None,
-            currency="USD",
-            country="US",
-            store="US",
-            language_short="en",
-            size_schema="US",
-            limit=10,
-            offset=0,
-            sort="recommended",
-        )
-        result["product_list"]["count"] = len(products)
-        result["product_list"]["sample"] = [_product_summary(p) for p in (products[:5] if products else [])]
-        if raw and raw_response is not None:
-            if isinstance(raw_response, dict):
-                result["product_list"]["_debug_response_keys"] = list(raw_response.keys())
-                result["product_list"]["_debug_value_types"] = {
-                    k: type(v).__name__ + (" (len=%s)" % len(v) if isinstance(v, (list, dict)) else "")
-                    for k, v in raw_response.items()
-                }
-                # Bei status+message: Inhalt von message anzeigen (oft Fehlermeldung der API)
-                if set(raw_response.keys()) <= {"status", "message"}:
-                    msg = raw_response.get("message")
-                    if isinstance(msg, list):
-                        result["product_list"]["_debug_message_content"] = msg[:5]
-                    else:
-                        result["product_list"]["_debug_message_content"] = msg
-            else:
-                result["product_list"]["_debug_response_type"] = type(raw_response).__name__
-    except Exception as e:
-        result["ok"] = False
-        result["product_list_error"] = str(e)
-    return result
+@app.post("/categories/sync", response_model=dict)
+def sync_categories():
+    """Nur Demo-Daten: Kein Sync mit externer API."""
+    return {"ok": True, "saved_count": 0, "message": "Nur Demo-Daten, kein Sync."}
