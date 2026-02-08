@@ -32,6 +32,8 @@ class _CartPageState extends State<CartPage> {
   bool _isLoading = true;
   String? _error;
   final Set<int> _removingIds = {};
+  bool _isCheckoutProcessing = false;
+  bool _checkoutSuccess = false;
 
   @override
   void initState() {
@@ -96,6 +98,35 @@ class _CartPageState extends State<CartPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Fehler: $e'), backgroundColor: Colors.red),
         );
+      }
+    }
+  }
+
+  Future<void> _simulateCheckout() async {
+    if (_isCheckoutProcessing || _checkoutSuccess) return;
+
+    setState(() {
+      _isCheckoutProcessing = true;
+      _checkoutSuccess = false;
+    });
+
+    try {
+      await Future.delayed(const Duration(milliseconds: 900));
+      if (!mounted) return;
+      setState(() {
+        _isCheckoutProcessing = false;
+        _checkoutSuccess = true;
+      });
+      widget.onCartChanged?.call();
+
+      await Future.delayed(const Duration(milliseconds: 900));
+      if (!mounted) return;
+      Navigator.pop(context);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isCheckoutProcessing = false;
+        });
       }
     }
   }
@@ -252,21 +283,48 @@ class _CartPageState extends State<CartPage> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
-                        // TODO: Checkout-Simulation
-                      },
+                      onPressed: (_isCheckoutProcessing || _checkoutSuccess)
+                          ? null
+                          : () => _simulateCheckout(),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
+                        backgroundColor: _checkoutSuccess
+                            ? Colors.green
+                            : Colors.black,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                      child: const Text(
-                        'Zur Kasse',
-                        style: TextStyle(fontSize: 16),
-                      ),
+                      child: _isCheckoutProcessing
+                          ? Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                SizedBox(width: 10),
+                                Text('Wird geladen...'),
+                              ],
+                            )
+                          : _checkoutSuccess
+                          ? Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                Icon(Icons.check_circle, size: 18),
+                                SizedBox(width: 8),
+                                Text('Erfolgreich gekauft'),
+                              ],
+                            )
+                          : const Text(
+                              'Zur Kasse',
+                              style: TextStyle(fontSize: 16),
+                            ),
                     ),
                   ),
                 ],
@@ -361,24 +419,6 @@ class _CartItemTile extends StatelessWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          item.retailerId,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.blue.shade700,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
                       Text(
                         'Menge: ${item.quantity}',
                         style: TextStyle(
