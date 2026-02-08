@@ -20,14 +20,12 @@ from schemas import (
     CartItemOut,
     CartSummaryOut,
     SearchResultOut,
-    OnlineSearchResultOut,
     CheckoutSimulationOut,
     AddToCartRequest,
     UpdateQuantityRequest,
 )
 from agent import process_message
 from search_service import run_search
-from online_search_service import run_online_search
 from cart_service import cart_to_summary, add_to_cart, remove_from_cart, update_cart_item_quantity
 from checkout_simulation import run_checkout_simulation
 from retailers.base import RetailerProduct
@@ -166,20 +164,6 @@ def search(session_id: str, db: Session = Depends(get_db)):
     db.commit()
     result = run_search(spec)
     return result
-
-
-@app.post("/sessions/{session_id}/search-online", response_model=OnlineSearchResultOut)
-def search_online(session_id: str, db: Session = Depends(get_db)):
-    """
-    KI-Online-Suche: Gemini wählt Shops, sucht im Web (Google Search) nach Produkten,
-    vergleicht sie und präsentiert die besten. Bei Outfits: KI legt die Teile fest
-    und liefert pro Teil 2 Optionen.
-    """
-    session = _get_session(session_id, db)
-    if session.status != "ready_for_search":
-        raise HTTPException(status_code=400, detail="Brief noch nicht abgeschlossen. Chat zuerst nutzen.")
-    spec = ShoppingSpecOut(**(session.requirements.to_dict()))
-    return run_online_search(spec)
 
 
 @app.get("/sessions/{session_id}/cart", response_model=CartSummaryOut)

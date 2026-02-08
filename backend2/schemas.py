@@ -99,26 +99,6 @@ class SearchResultOut(BaseModel):
     why_first: str = ""
 
 
-# ---- Online-Suche (KI + Web) ----
-
-class OutfitPartOut(BaseModel):
-    """Ein Teil eines Outfits mit genau 2 Empfehlungen."""
-    part_name: str
-    part_description: str = ""
-    options: list[RankedProductOut] = []  # genau 2 Optionen
-
-
-class OnlineSearchResultOut(BaseModel):
-    """Ergebnis der KI-Online-Suche: Shops besucht, Produkte verglichen, beste Optionen."""
-    shopping_spec: ShoppingSpecOut
-    is_outfit: bool = False
-    outfit_parts: list[OutfitPartOut] = []  # wenn is_outfit: Teile mit je 2 Optionen
-    products: list[RankedProductOut] = []  # wenn nicht Outfit: flache Liste bester Produkte
-    shops_considered: list[str] = []
-    recommendation_text: str = ""
-    search_queries_used: list[str] = []
-
-
 # ---- Cart ----
 
 class CartItemOut(BaseModel):
