@@ -1,4 +1,0 @@
-{"location":"asos_api.get_categories(dict_path)","message":"extracted raw","data":{"raw_type":'dict',"top_keys":['status', 'timestamp', 'data']},"hypothesisId":"H1,H3","timestamp":1770514925342856000}
-{"location":"asos_api.get_categories(exit)","message":"cache assigned","data":{"type":'list',"is_list":True,"len":3},"hypothesisId":"H1,H2","timestamp":1770514925343131000}
-{"location":"asos_api.get_categories(dict_path)","message":"extracted raw","data":{"raw_type":'dict',"top_keys":['status', 'timestamp', 'data']},"hypothesisId":"H1,H3","timestamp":1770515276641334000}
-{"location":"asos_api.get_categories(exit)","message":"cache assigned","data":{"type":'list',"is_list":True,"len":3},"hypothesisId":"H1,H2","timestamp":1770515276641561000}
